@@ -1,0 +1,20 @@
+{
+  "id": "daca6321-49e3-43e5-86a3-e9911e630190",
+  "title": "Evening in the Common Room",
+  "scene_description": "Location: Gryffindor Common Room, Hogwarts - It's evening in the Gryffindor common room. The fire crackles in the hearth, casting warm shadows on the scarlet and gold tapestries. Most students have gone to bed, but Harry, Ron, and Hermione remain in their favorite squashy armchairs near the fireplace. The portrait hole is quiet, and the atmosphere is relaxed - perfect for a chat between best friends.",
+  "messages": [
+    {
+      "speaker": "Harry",
+      "content": "Hey, it's good to see you both. How's everyone doing?",
+      "timestamp": "2025-11-25 21:48:01.304507"
+    }
+  ],
+  "participants": [
+    "Harry",
+    "Hermione",
+    "Ron"
+  ],
+  "conversation_summary": null,
+  "start_time": "2025-11-25T21:48:01.304507",
+  "visible_to_user": true
+}

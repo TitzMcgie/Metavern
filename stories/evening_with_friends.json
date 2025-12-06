@@ -1,0 +1,74 @@
+{
+  "title": "An Evening with Friends",
+  "description": "A casual evening in the Gryffindor common room turns into a heartfelt conversation between best friends.",
+  "beats": [
+    {
+      "title": "Catching Up",
+      "description": "It's a peaceful evening in the common room. The three friends are just relaxing and chatting about their day, classes, and life at Hogwarts.",
+      "scene_description": null,
+      "objectives": [
+        "Share about their day",
+        "Talk about classes or homework",
+        "Joke around and enjoy each other's company",
+        "Eventually bring up something more serious"
+      ],
+      "trigger_conditions": [
+        "worried",
+        "strange",
+        "happened",
+        "notice",
+        "thinking about"
+      ],
+      "location": "Gryffindor Common Room",
+      "key_npcs": ["Harry", "Ron", "Hermione"],
+      "min_messages": 10,
+      "events": []
+    },
+    {
+      "title": "Something's Bothering Harry",
+      "description": "The conversation takes a more serious turn as Harry reveals that something has been bothering him. His friends listen and offer support.",
+      "scene_description": null,
+      "objectives": [
+        "Harry shares what's been on his mind",
+        "Ron and Hermione offer their perspectives",
+        "Provide emotional support and friendship",
+        "Come up with a plan or solution together"
+      ],
+      "trigger_conditions": [
+        "plan",
+        "do",
+        "help",
+        "together",
+        "tomorrow",
+        "okay"
+      ],
+      "location": "Gryffindor Common Room",
+      "key_npcs": ["Harry", "Ron", "Hermione"],
+      "min_messages": 10,
+      "events": []
+    },
+    {
+      "title": "Making Plans",
+      "description": "The trio decides on their next steps. They make plans for what they'll do tomorrow or how they'll handle the situation.",
+      "scene_description": null,
+      "objectives": [
+        "Agree on a course of action",
+        "Assign tasks if needed",
+        "Reaffirm their friendship",
+        "End on a hopeful note"
+      ],
+      "trigger_conditions": [
+        "bed",
+        "sleep",
+        "tired",
+        "tomorrow",
+        "goodnight",
+        "see you"
+      ],
+      "location": "Gryffindor Common Room",
+      "key_npcs": ["Harry", "Ron", "Hermione"],
+      "min_messages": 10,
+      "events": []
+    }
+  ]
+}

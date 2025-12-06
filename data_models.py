@@ -1,0 +1,144 @@
+"""
+Data models for the multi-character roleplay system.
+All Pydantic models are defined here.
+"""
+
+from datetime import datetime
+from typing import List, Dict, Optional, Any
+from pydantic import BaseModel, Field
+import uuid
+
+
+class Message(BaseModel):
+    """Represents a single message in the conversation."""
+
+    speaker: str = Field(..., description="Name of the character speaking")
+    content: str = Field(..., description="Content of the message")
+    timestamp: datetime = Field(
+        default_factory=datetime.now,
+        description="When this message was spoken"
+    )
+
+
+class MessageHistory(BaseModel):
+    """Represents the complete conversation history."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique ID for the conversation")
+    title: Optional[str] = Field(default=None, description="Optional title for the conversation (e.g., 'Midnight Planning')")
+    scene_description: Optional[str] = Field(
+        default=None,
+        description="Description of the scene or context for this conversation (e.g., 'A quiet night in the library')"
+    )
+    messages: List[Message] = Field(
+        default_factory=list,
+        description="List of all messages exchanged in this conversation"
+    )
+    participants: List[str] = Field(
+        default_factory=list,
+        description="List of characters involved in this conversation"
+    )
+    conversation_summary: Optional[str] = Field(
+        default=None,
+        description="Brief automatically generated summary of the conversation"
+    )
+    start_time: str = Field(
+        default_factory=lambda: datetime.now().isoformat(),
+        description="When the conversation started"
+    )
+    visible_to_user: bool = Field(
+        default=True,
+        description="Whether the user can view this conversation (for private NPC chats, set False)"
+    )
+
+
+class CharacterPersona(BaseModel):
+    """Defines a character's personality, background, and relationships."""
+    
+    name: str = Field(..., description="Character's full name")
+    traits: List[str] = Field(..., description="List of personality traits")
+    relationships: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Mapping of character names to relationship descriptions"
+    )
+    speaking_style: str = Field(..., description="Description of how the character speaks")
+    background: str = Field(..., description="Character's background and context")
+    goals: Optional[List[str]] = Field(
+        default=None,
+        description="Character's goals or motivations that influence decision-making"
+    )
+    knowledge_base: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Information, secrets, or world knowledge specific to this character"
+    )
+
+class CharacterMemory(BaseModel):
+    """
+    Represents a character's evolving understanding of the world, based on observations and personal interpretations. Stores charracter's spoken messages and observations.
+    """
+
+    name: str = Field(..., description="Name of the character this memory belongs to")
+
+    spoken_messages: List[Message] = Field(
+        default_factory=list,
+        description="Messages spoken by the character"
+    )
+
+    observations: List[str] = Field(
+        default_factory=list,
+        description="Direct things the character has seen, heard, or experienced in the world and Conclusions, assumptions, or subjective beliefs formed"
+    )
+
+
+class CharacterState(BaseModel):
+    """Represents the character's current, moment-to-moment condition."""
+    
+    name: str
+    mood: str = Field(default="neutral", description="Current emotional state")
+    focus: Optional[str] = Field(default=None, description="What the character is currently focusing on or thinking about")
+    current_action: Optional[str] = Field(default=None, description="Current activity or intent")
+    is_silent: bool = Field(default=False, description="Whether character is deliberately staying silent (upset, thinking, etc.)")
+
+
+class Character(BaseModel):
+    """Encapsulates all aspects of a single character."""
+    persona: CharacterPersona
+    memory: Optional[CharacterMemory] = None
+    state: Optional[CharacterState] = None
+    
+
+class Story(BaseModel):
+    """
+    Unified story management class that handles progression, beats, and dynamic events.
+    Consolidates StoryArc, StoryBeat, and StoryEvent functionality.
+    """
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique ID for the story")
+    title: str = Field(..., description="Title of the story arc")
+    description: str = Field(..., description="Overall description of the story")
+    completed: bool = Field(default=False, description="Whether the entire story is completed")
+    
+    beats: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="""List of story beats in order. Each beat is a dict with:
+        - id: str (unique ID)
+        - title: str (beat title)
+        - description: str (what happens)
+        - scene_description: Optional[str] (atmospheric location description)
+        - objectives: List[str] (goals to accomplish)
+        - completed: bool (default False)
+        - trigger_conditions: Optional[List[str]] (conditions to advance)
+        - location: Optional[str] (where beat takes place)
+        - key_npcs: Optional[List[str]] (important NPCs)
+        - min_messages: int (minimum messages before advancing, default 10)
+        - events: List[Dict] (dynamic events for this beat, each with:
+            - id: str (unique ID)
+            - title: str (event title)
+            - description: str (what happens)
+            - event_type: str ('interruption', 'discovery', 'encounter', 'danger', 'mystery')
+            - trigger_after_messages: Optional[int] (trigger timing)
+            - triggered: bool (default False)
+            - priority: float (0.0-1.0, likelihood to trigger)
+        )
+        """
+    )
+    current_beat_index: int = Field(default=0, description="Index of the current beat")

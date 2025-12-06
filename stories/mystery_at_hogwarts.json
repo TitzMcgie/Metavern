@@ -1,0 +1,75 @@
+{
+  "title": "The Mystery at Hogwarts",
+  "description": "Harry, Ron, and Hermione discover a dark plot threatening Hogwarts. They must work together to uncover the truth and stop the danger before it's too late.",
+  "beats": [
+    {
+      "title": "Strange Suspicions",
+      "description": "Harry has been having strange dreams and his scar has been hurting. The trio discusses recent odd occurrences at Hogwarts. Something doesn't feel right, and they need to figure out what's going on.",
+      "scene_description": null,
+      "objectives": [
+        "Share concerns about recent strange events",
+        "Discuss Harry's scar pain and what it might mean",
+        "Decide to investigate the mysterious happenings",
+        "Make a plan for what to do next"
+      ],
+      "trigger_conditions": [
+        "plan",
+        "investigate",
+        "tonight",
+        "tomorrow",
+        "library",
+        "find out"
+      ],
+      "location": "Gryffindor Common Room",
+      "key_npcs": ["Harry", "Ron", "Hermione"],
+      "min_messages": 10,
+      "events": []
+    },
+    {
+      "title": "Gathering Information",
+      "description": "The trio has decided to research what might be happening. They need to visit the library, talk to teachers, or find other ways to gather information about the threats they're sensing.",
+      "scene_description": null,
+      "objectives": [
+        "Discuss what information they need",
+        "Plan how to gather it without arousing suspicion",
+        "Split up tasks or decide to work together",
+        "Set a time and place to reconvene"
+      ],
+      "trigger_conditions": [
+        "library",
+        "search",
+        "books",
+        "ask",
+        "find",
+        "research"
+      ],
+      "location": "Hogwarts Corridors / Library",
+      "key_npcs": ["Harry", "Ron", "Hermione"],
+      "min_messages": 10,
+      "events": []
+    },
+    {
+      "title": "Discovering the Truth",
+      "description": "They've gathered clues and information. Now they need to piece together what's really happening and what danger Hogwarts faces. The truth is more serious than they thought.",
+      "scene_description": null,
+      "objectives": [
+        "Share what each person has learned",
+        "Connect the dots and realize the real threat",
+        "Understand the stakes and danger involved",
+        "Decide if they should tell a teacher or handle it themselves"
+      ],
+      "trigger_conditions": [
+        "Voldemort",
+        "stone",
+        "danger",
+        "tonight",
+        "stop",
+        "protect"
+      ],
+      "location": "Secret Meeting Place",
+      "key_npcs": ["Harry", "Ron", "Hermione"],
+      "min_messages": 10,
+      "events": []
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "title": "Harry Potter: The Complete Journey",
+  "description": "Follow Harry, Ron, and Hermione through a complete adventure—from the first whispers of darkness to the final confrontation with evil. Experience the full emotional arc of discovery, fear, courage, sacrifice, and triumph as the Golden Trio proves that friendship and love are the most powerful magic in the wizarding world.",
+  "beats": [
+    {
+      "title": "A Quiet Evening - The Calm Before",
+      "description": "It's a peaceful evening in the Gryffindor common room. The Golden Trio relaxes by the fireplace, enjoying a rare moment of peace. But Harry can't shake a growing sense of unease. Something feels different.",
+      "scene_description": "The Gryffindor common room glows warmly in the evening light. The fire crackles in the stone hearth, casting dancing shadows across the scarlet and gold tapestries that adorn the circular walls. The smell of old parchment and wood smoke fills the air. Most students have retired to bed, leaving the room quiet except for the occasional pop from the fire and the soft rustle of pages turning. Harry, Ron, and Hermione sit in their favorite squashy armchairs, worn soft by years of use. Through the tall windows, the night sky stretches endlessly, stars twinkling over the Forbidden Forest's dark silhouette. The atmosphere is peaceful, almost too peaceful—like the stillness before a storm.",
+      "objectives": [
+        "Enjoy casual conversation and catch up with friends",
+        "Notice Harry seems distracted or troubled",
+        "Eventually have Harry mention his concerns or worries",
+        "Friends offer support and decide to take him seriously"
+      ],
+      "trigger_conditions": [
+        "scar",
+        "dream",
+        "feeling",
+        "wrong",
+        "worried",
+        "Voldemort"
+      ],
+      "location": "Gryffindor Common Room, Hogwarts",
+      "key_npcs": ["Harry", "Ron", "Hermione"],
+      "min_messages": 15,
+      "events": [
+        {
+          "title": "Harry's Scar Suddenly Burns",
+          "description": "Mid-conversation, Harry's hand flies to his forehead. His scar—the lightning bolt that's been quiet for so long—suddenly sears with white-hot pain. For a moment, he can't breathe, can't think. Images flash before his eyes: darkness, a cold voice, red eyes gleaming with malice. Then it passes, leaving him gasping and pale. Ron and Hermione are staring at him with alarm. This is no ordinary headache—Harry's scar hasn't hurt like this in years. Something is very, very wrong.",
+          "event_type": "danger",
+          "trigger_after_messages": 7,
+          "priority": 0.9
+        },
+        {
+          "title": "A Strange Owl Arrives",
+          "description": "A tawny owl swoops through the still-open portrait hole, nearly colliding with the chandelier. It's unusual for post to arrive this late. The bird circles once before dropping a sealed letter directly into Harry's lap. The wax seal is unmarked—no crest, no symbol. Just smooth, dark wax. The owl doesn't wait for a treat or reply; it simply vanishes back into the night. The letter sits there, innocent-looking but somehow ominous. Who would send Harry a letter at this hour? And why deliver it so mysteriously? Hermione leans forward, frowning. 'That's odd,' she whispers. Ron's hand has moved instinctively toward his wand.",
+          "event_type": "mystery",
+          "trigger_after_messages": 10,
+          "priority": 0.8
+        },
+        {
+          "title": "The Portrait Speaks a Warning",
+          "description": "One of the portraits on the wall—an old wizard with a long silver beard—suddenly clears his throat loudly. The three friends jump, turning to look. The painted figure is usually asleep at this hour, but now his eyes are wide and serious. 'Danger approaches Hogwarts,' he intones in a grave voice. 'The Dark Lord stirs. His servants walk these halls.' Before anyone can respond, he adds, 'Beware those you trust, young Potter. Not all is as it seems.' Then he closes his eyes and returns to painted slumber, leaving the trio staring at each other in shocked silence. Did that really just happen? And what did he mean?",
+          "event_type": "mystery",
+          "trigger_after_messages": 12,
+          "priority": 0.7
+        }
+      ]
+    }
+  ]
+}
