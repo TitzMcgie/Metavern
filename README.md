@@ -1,66 +1,30 @@
-# Pirate Chatbot - Captain Blackheart
+# RoleRealm
 
-A roleplay chatbot featuring Captain Blackheart, a legendary pirate ship captain, powered by Google's Gemini API.
+An interactive AI-powered roleplay system that brings characters to life through dynamic conversations and story-driven experiences, powered by Google's Gemini API.
 
 ## Features
 
-- 🏴‍☠️ Immersive pirate character roleplay
-- 💬 Full chat context management using Pydantic
-- 💾 Automatic chat history saving to JSON files
-- 🔄 Maintains conversation context across the entire session
-- ⚓ Authentic pirate personality and dialect
+- 🎭 Immersive character-driven roleplay with multiple personalities
+- 💬 Advanced conversation management with full context awareness
+- 📖 Story arc system with scenes and narrative progression
+- 💾 Automatic chat history and story state persistence
+- 🔄 Maintains conversation context across sessions
+- 👥 Support for both individual and group character interactions
 
-## Setup
+## Overview
 
-1. **Activate your conda environment:**
-   ```bash
-   conda activate D:\Agni\venv
-   ```
+RoleRealm creates engaging roleplay experiences by combining:
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+- **Character System**: Load and interact with multiple distinct characters, each with unique personalities and backgrounds
+- **Story Management**: Progress through structured story arcs with scenes and objectives
+- **Context Awareness**: Full conversation history ensures characters remember past interactions
+- **Flexible Architecture**: Modular design with managers for characters, messages, scenes, and story progression
 
-3. **Set your Gemini API key:**
-   
-   Get your API key from: https://makersuite.google.com/app/apikey
-   
-   Then set it as an environment variable:
-   ```powershell
-   $env:GEMINI_API_KEY='your-api-key-here'
-   ```
+## Project Structure
 
-## Usage
+- `characters/` - Character definition files
+- `stories/` - Story arc and scene definitions
+- `managers/` - Core system managers (character, message, scene, story, turn)
+- `chat_logs/` - Saved conversation histories
 
-Run the chatbot:
-```bash
-python pirate_chatbot.py
-```
-
-Type your messages to chat with Captain Blackheart. Type `quit`, `exit`, or `goodbye` to end the conversation.
-
-## Chat History
-
-All conversations are automatically saved in the `chat_logs/` directory with the format:
-```json
-[
-  {
-    "user": "Hello Captain!",
-    "timestamp": "2025-11-11T..."
-  },
-  {
-    "model": "Ahoy there, matey!...",
-    "timestamp": "2025-11-11T..."
-  }
-]
-```
-
-## How It Works
-
-1. **Context Management**: The entire chat history is sent to Gemini with each request, maintaining full conversation context
-2. **Pydantic Models**: Uses Pydantic for data validation and structured chat history
-3. **System Prompt**: A detailed character prompt ensures Captain Blackheart stays in character
-4. **Persistent Storage**: Every exchange is saved to a JSON file for later reference
-
-Enjoy your adventure on the high seas! ⚓🏴‍☠️
+Start your roleplay adventure today!
