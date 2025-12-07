@@ -87,12 +87,12 @@ STORY GUIDANCE:
         if not beat or not trigger_conditions:
             return False
         
-        # Use Gemini API to intelligently check if objectives are being met
+        # Use OpenRouter API to intelligently check if objectives are being met
         try:
-            import google.generativeai as genai
             from config import Config
+            from openrouter_client import GenerativeModel
             
-            model = genai.GenerativeModel(Config.DEFAULT_MODEL)
+            model = GenerativeModel(Config.DEFAULT_MODEL)
             
             objectives = beat.get("objectives", [])
             objectives_text = "\n".join([f"- {obj}" for obj in objectives])
@@ -141,7 +141,7 @@ Respond with ONLY:
             True if advanced successfully, False if at end
         """
         if self.story:
-            result = self.story.advance_beat()
+            result = self.advance_beat()
             # Reset message count for new beat
             self.messages_in_current_beat = 0
             self.last_event_at_message = 0
@@ -228,12 +228,12 @@ Respond with ONLY:
             # Get last few messages for context
             context = "\n".join([f"{msg.speaker}: {msg.content}" for msg in recent_messages[-3:]])
             
-            # Use Gemini to determine if timing is appropriate
+            # Use OpenRouter to determine if timing is appropriate
             try:
-                import google.generativeai as genai
                 from config import Config
+                from openrouter_client import GenerativeModel
                 
-                model = genai.GenerativeModel(Config.DEFAULT_MODEL)
+                model = GenerativeModel(Config.DEFAULT_MODEL)
                 
                 prompt = f"""Analyze this conversation context and determine if NOW is a good time for a dramatic story event to occur.
 

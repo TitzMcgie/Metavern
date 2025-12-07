@@ -3,13 +3,13 @@ Main roleplay system coordinator.
 """
 
 from typing import List, Optional
-import google.generativeai as genai
 from pathlib import Path
 import json
 
 from data_models import CharacterPersona, Character
 from data_models import Character
 from managers.turn_manager import TurnManager
+from managers.narratorManager import NarratorManager
 from config import Config
 from managers.messageManager import MessageManager
 from managers.sceneManager import SceneManager
@@ -24,7 +24,8 @@ class RoleplaySystem:
         characters: List[CharacterPersona],
         model_name: str = None,
         chat_storage_dir: str = None,
-        story_manager = None
+        story_manager = None,
+        narrator_manager = None
     ):
         """
         Initialize the roleplay system.
@@ -35,18 +36,18 @@ class RoleplaySystem:
             model_name: Gemini model to use for all characters (defaults to Config.DEFAULT_MODEL)
             chat_storage_dir: Directory to store chat logs (defaults to Config.CHAT_STORAGE_DIR)
             story_manager: Optional StoryManager for narrative progression
+            narrator_manager: Optional NarratorManager for scene transitions
             
         Raises:
-            ValueError: If GEMINI_API_KEY is not set
+            ValueError: If OPENROUTER_API_KEY is not set
         """
         # Configure API with key from Config
-        api_key = Config.GEMINI_API_KEY
+        api_key = Config.OPENROUTER_API_KEY
         if not api_key:
             raise ValueError(
-                "GEMINI_API_KEY not set in environment. "
+                "OPENROUTER_API_KEY not set in environment. "
                 "Please set it in your .env file or environment variables."
             )
-        genai.configure(api_key=api_key)
         
         self.player_name = player_name
         self.model_name = model_name or Config.DEFAULT_MODEL
@@ -57,11 +58,15 @@ class RoleplaySystem:
             for persona in characters
         ]
         
-        # Create turn manager
+        # Create or use provided narrator manager
+        self.narrator_manager = narrator_manager or NarratorManager(model_name=self.model_name)
+        
+        # Create turn manager with narrator
         self.turn_manager = TurnManager(
             characters=self.ai_characters,
             player_name=player_name,
-            story_manager=story_manager
+            story_manager=story_manager,
+            narrator_manager=self.narrator_manager
         )
         
         # Get references to managers for direct access
@@ -72,6 +77,43 @@ class RoleplaySystem:
         # Setup storage
         self.chat_storage_dir = Path(chat_storage_dir or Config.CHAT_STORAGE_DIR)
         self.chat_storage_dir.mkdir(exist_ok=True)
+        
+        # Try to load existing conversation
+        self._load_conversation_if_exists()
+    
+    def _load_conversation_if_exists(self) -> bool:
+        """
+        Load existing conversation from file if it exists.
+        
+        Returns:
+            True if conversation was loaded, False otherwise
+        """
+        filepath = self.get_conversation_file_path()
+        
+        if not filepath.exists():
+            return False
+        
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Restore the scene from saved data
+            self.scene = self.scene_manager.from_dict(data)
+            self.turn_manager.scene = self.scene
+            
+            print("\n" + "="*70)
+            print("📂 LOADED EXISTING CONVERSATION")
+            print("="*70)
+            print(f"Restored {len(self.scene.messages)} previous messages")
+            print(f"Continuing from where you left off...")
+            print("="*70 + "\n")
+            
+            return True
+            
+        except Exception as e:
+            print(f"\n⚠️  Could not load previous conversation: {e}")
+            print("Starting fresh conversation instead.\n")
+            return False
     
     def _save_conversation(self) -> None:
         """Save the current conversation to a JSON file."""
@@ -84,9 +126,21 @@ class RoleplaySystem:
     
     def _add_player_message(self, content: str) -> None:
         """Add a player message to the conversation."""
+        # Extract action description from brackets if present
+        import re
+        action_desc = None
+        dialogue = content
+        
+        bracket_match = re.search(r'\[([^\]]+)\]', content)
+        if bracket_match:
+            action_desc = bracket_match.group(1).strip()
+            # Remove brackets from the dialogue
+            dialogue = re.sub(r'\[([^\]]+)\]', '', content).strip()
+        
         message = self.message_manager.create_message(
             speaker=self.player_name,
-            content=content
+            content=dialogue,
+            action_description=action_desc
         )
         self.message_manager.add_message(self.scene, message)
         self._save_conversation()
@@ -103,6 +157,27 @@ class RoleplaySystem:
     def get_conversation_file_path(self) -> Path:
         """Get the file path where the conversation is saved."""
         return self.chat_storage_dir / "group_chat.json"
+    
+    def reset_conversation(self) -> None:
+        """
+        Reset the conversation to start fresh.
+        Deletes the saved file and clears current messages.
+        """
+        filepath = self.get_conversation_file_path()
+        
+        # Delete saved file if it exists
+        if filepath.exists():
+            filepath.unlink()
+        
+        # Clear current scene messages
+        self.scene.messages.clear()
+        
+        print("\n" + "="*70)
+        print("🔄 CONVERSATION RESET")
+        print("="*70)
+        print("All previous messages have been cleared.")
+        print("Starting fresh conversation...")
+        print("="*70 + "\n")
     
     def display_welcome(self) -> None:
         """Display welcome message with character information."""

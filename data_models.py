@@ -14,6 +14,10 @@ class Message(BaseModel):
 
     speaker: str = Field(..., description="Name of the character speaking")
     content: str = Field(..., description="Content of the message")
+    action_description: Optional[str] = Field(
+        default=None,
+        description="Physical action or body language accompanying the message"
+    )
     timestamp: datetime = Field(
         default_factory=datetime.now,
         description="When this message was spoken"

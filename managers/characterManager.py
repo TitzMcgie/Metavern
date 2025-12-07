@@ -2,12 +2,12 @@ from typing import List, Optional, Dict, Any, Tuple
 import sys
 from pathlib import Path
 import json
-import google.generativeai as genai
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data_models import CharacterPersona, Message, Character, CharacterMemory, CharacterState
 from config import Config
+from openrouter_client import GenerativeModel
 
 
 class CharacterManager:
@@ -100,7 +100,7 @@ class CharacterManager:
         """Get or create a generative model."""
         model_name = model_name or Config.DEFAULT_MODEL
         if model_name not in self.models:
-            self.models[model_name] = genai.GenerativeModel(model_name)
+            self.models[model_name] = GenerativeModel(model_name)
         return self.models[model_name]
     
     def build_persona_context(self, character: Character) -> str:
@@ -134,8 +134,11 @@ YOUR RELATIONSHIPS:
         """Build the conversation context string with actions noted."""
         context_lines = []
         for msg in messages:
-            # Message content now includes action descriptions in format: *action* dialogue
-            context_lines.append(f"{msg.speaker}: {msg.content}")
+            # Include action description if present
+            if msg.action_description:
+                context_lines.append(f"{msg.speaker}: *{msg.action_description}* {msg.content}")
+            else:
+                context_lines.append(f"{msg.speaker}: {msg.content}")
         return "\n".join(context_lines)
     
     def build_decision_prompt(
@@ -168,40 +171,82 @@ YOUR RELATIONSHIPS:
         persona_context = self.build_persona_context(character)
         conversation_context = self.build_conversation_context(recent_messages)
         
+        # Detect if player is absent/withdrawn (based on action_description field)
+        player_absent = False
+        other_characters = []
+        if recent_messages:
+            last_msg = recent_messages[-1]
+            # Check if the last message has an action description indicating leaving
+            # The withdrawal detector already validated this is a leaving action
+            if last_msg.action_description:
+                player_absent = True
+                # Find other active characters
+                speakers = set(msg.speaker for msg in recent_messages[-5:])
+                speakers.discard(last_msg.speaker)  # Remove the absent player
+                speakers.discard(character.persona.name)  # Remove self
+                other_characters = list(speakers)
+        
         # Add story context if provided
         story_section = ""
         if story_context:
             story_section = f"\n{story_context}\n"
         
+        # Add player absence context
+        absence_context = ""
+        if player_absent and other_characters:
+            absence_context = f"""
+🚪 IMPORTANT - PLAYER ABSENT:
+{last_msg.speaker} has withdrawn (sleeping/resting/left the room).
+You are now alone with: {', '.join(other_characters)}
+
+**CONVERSATION STYLE WHEN ALONE WITH FRIENDS:**
+- Talk TO them directly, not just ABOUT the absent person
+- Have natural friend-to-friend conversations
+- Share YOUR thoughts, feelings, and opinions
+- Ask THEM questions, respond to what THEY said
+- Example: "What do you think about..." not just "I hope Harry is okay"
+- You can discuss the absent friend, but also talk about other things
+- Be natural - friends chat about many topics when alone together
+"""
+        
         prompt = f"""{persona_context}
-{story_section}
+{story_section}{absence_context}
 RECENT CONVERSATION:
 {conversation_context}
 
 DECISION TASK:
 Based on the conversation above, decide if you should respond right now.
 
-Consider:
-1. Is the topic relevant to you or your interests?
-2. Were you directly addressed or mentioned?
-3. Would your input add VALUE and a NEW PERSPECTIVE to the conversation?
-4. Is it natural timing (not interrupting, not creating awkward silence)?
-5. Have you spoken too recently? (Don't dominate the conversation)
-6. Would another character be better suited to respond first?
-7. **CRITICAL**: If someone just said something similar to what you'd say, DON'T repeat it!
-8. **CRITICAL**: Bring YOUR unique perspective based on YOUR personality, not echoing others!
-9. **RESPECT BOUNDARIES**: If someone has clearly stated their position multiple times (2-3+), RESPECT IT. Don't keep pushing.
-10. **INDEPENDENCE**: Don't just agree with or support what another character said. Have your OWN opinion.
-11. **NATURAL CONVERSATION**: Sometimes the right response is to back off, change the subject, or accept what someone said.
-12. **AVOID GANGING UP**: If another character is already pressing someone, don't pile on unless you have a DIFFERENT perspective.
+WHEN YOU SHOULD SPEAK (high priority):
+1. **Someone asks YOU a direct question** - You should respond!
+2. **Someone greets the group or asks how everyone is doing** - It's natural to respond as friends!
+3. **Someone reveals important/concerning information** - React with your authentic concern!
+4. **You're directly addressed or mentioned** - Respond naturally!
+5. **There's been awkward silence** - Someone should break it!
+6. **The topic is highly relevant to YOU** - Share your unique perspective!
+7. **Someone needs help or support** - Friends respond to friends!
 
-CRITICAL RULES FOR NATURAL CONVERSATION:
-- If someone says "I'm fine" or similar 2-3 times, BELIEVE THEM or drop it gracefully
-- Don't make every conversation a confrontation or intervention
-- Characters can disagree with each other, not just team up
-- Sometimes the best response is acceptance: "Okay, if you say so" or changing the subject
-- Not everything needs to be analyzed or probed deeply
-- Respect when someone wants to end a topic
+WHEN TO BE THOUGHTFUL (medium priority):
+- Is this the natural flow of conversation, or would you be interrupting?
+- Have you spoken very recently? Let others have a turn too.
+- Do you have something NEW and VALUABLE to add?
+- Would your unique perspective enrich the conversation?
+
+WHEN NOT TO SPEAK (stay quiet):
+- You JUST spoke in the last message (let others respond first)
+- Someone else already said exactly what you'd say
+- You've made the same point 2-3+ times already (don't be repetitive!)
+- Someone clearly wants to end a topic and you'd just push it again
+- Another character is better suited to respond to this specific topic
+- The conversation doesn't involve you and you have nothing unique to add
+
+SPECIAL SITUATIONS:
+- **RESPECT BOUNDARIES**: If someone has stated their position 3+ times, accept it or change approach
+- **REACT TO DANGER/CONCERN**: If friend mentions pain/danger/threat, ALWAYS respond with concern!
+- **WITHDRAWAL CONTEXT**: If someone needs rest after revealing something serious, acknowledge both parts
+- **DON'T GANG UP**: If another character is already confronting someone, don't pile on unless you have a DIFFERENT view
+- **BE INDEPENDENT**: Have your own opinions - don't just echo what others said
+- **NATURAL FLOW**: Sometimes "Alright, if you say so" or changing subjects IS the right move
 
 OUTPUT FORMAT (strict JSON):
 {{
@@ -211,6 +256,12 @@ OUTPUT FORMAT (strict JSON):
   "action_description": "brief narrative of your physical actions/body language (if any)",
   "message": "your actual dialogue if wants_to_speak is true, otherwise null"
 }}
+
+**STARTING CONVERSATIONS:**
+- If this is the VERY FIRST message or a greeting like "How's everyone doing?", it's NATURAL and EXPECTED to respond!
+- Friends respond to greetings - it would be RUDE to stay silent when greeted directly!
+- Set wants_to_speak = TRUE and priority = 0.7+ for initial greetings
+- Be warm and friendly in your response
 
 IMPORTANT:
 - Include BOTH action descriptions AND dialogue to make it vivid and immersive
@@ -240,6 +291,7 @@ IMPORTANT:
 - **BACKING OFF**: Sometimes "Alright, fair enough" or "Suit yourself" is the perfect response
 - **RESPECTING AUTONOMY**: If someone clearly doesn't want to talk about something, that's OKAY
 - **NATURAL FLOW**: Not every topic needs resolution. Sometimes you just move on.
+- **REACT TO DANGER/CONCERN**: If your friend mentions pain, danger, or a threat - REACT! Even if they want to sleep after.
 """
         return prompt
     
@@ -303,9 +355,18 @@ IMPORTANT:
                 decision_data.get("message", None)
             )
             
+        except json.JSONDecodeError as e:
+            # JSON parsing error - show the actual response
+            error_msg = f"JSON parsing failed. Response was: {response.text[:200] if 'response' in locals() else 'No response'}"
+            return (False, 0.0, error_msg, None, None)
         except Exception as e:
-            # Return default non-speaking decision on error
-            return (False, 0.0, f"Error in processing: {str(e)}", None, None)
+            # Check if it's a quota/rate limit error
+            error_str = str(e)
+            if "quota" in error_str.lower() or "429" in error_str or "ResourceExhausted" in error_str:
+                return (False, 0.0, "API_QUOTA_EXCEEDED", None, None)
+            # Return default non-speaking decision on error with full error details
+            error_msg = f"Error: {type(e).__name__}: {str(e)}"
+            return (False, 0.0, error_msg, None, None)
     
     def add_spoken_message(self, character: Character, message: Message) -> None:
         """Add a message to character's spoken messages memory."""

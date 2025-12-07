@@ -111,3 +111,24 @@ class SceneManager:
         if self.history:
             return self.history.model_dump()
         return {}
+    
+    def from_dict(self, data: dict) -> MessageHistory:
+        """
+        Load a scene from a dictionary.
+        
+        Args:
+            data: Dictionary containing scene data
+            
+        Returns:
+            MessageHistory object restored from data
+        """
+        # Use Pydantic's model_validate to create MessageHistory from dict
+        self.history = MessageHistory.model_validate(data)
+        
+        # Update internal tracking
+        self.title = self.history.title
+        self.scene_description = self.history.scene_description
+        self.location = self.scene_description  # Maintain compatibility
+        self.plot = self.scene_description
+        
+        return self.history

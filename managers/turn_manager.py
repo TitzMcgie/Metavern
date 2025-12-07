@@ -7,12 +7,14 @@ All message operations are delegated to MessageManager.
 import random
 import time
 from typing import List, Optional, Tuple
+from colorama import Fore, Style
 
 from data_models import Message, MessageHistory, Character
 from managers.messageManager import MessageManager
 from managers.sceneManager import SceneManager
 from managers.characterManager import CharacterManager
 from managers.storyManager import StoryManager
+from managers.narratorManager import NarratorManager
 from config import Config
 
 
@@ -31,6 +33,7 @@ class TurnManager:
         characters: List[Character],
         player_name: str,
         story_manager: Optional[StoryManager] = None,
+        narrator_manager: Optional[NarratorManager] = None,
         max_consecutive_ai_turns: int = None,
         priority_randomness: float = None
     ):
@@ -41,12 +44,14 @@ class TurnManager:
             characters: List of AI characters in the conversation
             player_name: Name of the human player
             story_manager: Optional story manager for narrative progression
+            narrator_manager: Optional narrator manager for scene transitions
             max_consecutive_ai_turns: Maximum number of consecutive AI turns (defaults to Config.MAX_CONSECUTIVE_AI_TURNS)
             priority_randomness: Random factor to add to priority for naturalness (defaults to Config.PRIORITY_RANDOMNESS)
         """
         self.characters = characters
         self.player_name = player_name
         self.story_manager = story_manager
+        self.narrator_manager = narrator_manager or NarratorManager()
         self.max_consecutive_ai_turns = max_consecutive_ai_turns or Config.MAX_CONSECUTIVE_AI_TURNS
         self.priority_randomness = priority_randomness or Config.PRIORITY_RANDOMNESS
         
@@ -62,6 +67,7 @@ class TurnManager:
         )
         
         self.turn_count = 0
+        self.consecutive_silence_rounds = 0
     
     def _collect_speaking_decisions(self) -> List[Tuple[Character, Tuple[bool, float, str, Optional[str]]]]:
         """
@@ -71,6 +77,7 @@ class TurnManager:
             List of tuples containing (character, decision_tuple) for characters that want to speak
         """
         decisions = []
+        quota_exceeded = False
         
         # Get story context if available
         story_context = None
@@ -84,10 +91,32 @@ class TurnManager:
                 story_context=story_context
             )
             
+            # Check for quota exceeded error
+            if reasoning == "API_QUOTA_EXCEEDED":
+                quota_exceeded = True
+                continue
+            
             if wants_to_speak:
                 decisions.append((character, (wants_to_speak, priority, reasoning, action_desc, message)))
                 print(f"   💭 {character.persona.name}: "
                       f"Priority {priority:.2f} - {reasoning}")
+            else:
+                # Debug: Show why they don't want to speak
+                print(f"   🤐 {character.persona.name}: {reasoning}")
+        
+        # Display quota exceeded message if detected
+        if quota_exceeded:
+            print("\n" + "="*70)
+            print("⚠️  API QUOTA EXCEEDED")
+            print("="*70)
+            print("You've reached the free tier limit for Gemini API requests.")
+            print(f"Current model: {Config.DEFAULT_MODEL}")
+            print("Free tier limit: ~20 requests per minute")
+            print("\nOptions:")
+            print("  1. Wait ~40-60 seconds and try again")
+            print("  2. Check your usage at: https://ai.dev/usage?tab=rate-limit")
+            print("  3. Upgrade your plan for higher limits")
+            print("="*70 + "\n")
         
         return decisions
     
@@ -191,7 +220,23 @@ class TurnManager:
             result = self.select_next_speaker()
             
             if result is None:
+                # No one wants to speak - increment silence counter
+                self.consecutive_silence_rounds += 1
+                
+                # Check if narrator should intervene
+                if self.narrator_manager.detect_conversation_stagnation(
+                    self.consecutive_silence_rounds,
+                    self.scene.messages,
+                    self.player_name
+                ):
+                    self._trigger_narrator_intervention()
+                    # Reset silence counter after intervention
+                    self.consecutive_silence_rounds = 0
+                
                 break
+            
+            # Reset silence counter when someone speaks
+            self.consecutive_silence_rounds = 0
             
             character, action_desc, message = result
             
@@ -202,19 +247,18 @@ class TurnManager:
             
             responses.append((character, message))
             
-            # CRITICAL: Add the message to the scene immediately so the next character sees it
-            # Include action description in content so AI can see previous actions
-            full_content = f"*{action_desc}* {message}" if action_desc else message
+            # Add the message to the scene with separate action_description field
             message_obj = self.message_manager.create_message(
                 speaker=character.persona.name,
-                content=full_content
+                content=message,
+                action_description=action_desc
             )
             self.message_manager.add_message(self.scene, message_obj)
             
-            # Print with action description if available
+            # Print with action description in cyan color if available
             print(f"\n💬 {character.persona.name}:", end="")
             if action_desc:
-                print(f" *{action_desc}*")
+                print(f" {Fore.CYAN}*{action_desc}*{Style.RESET_ALL}")
                 print(f"   \"{message}\"")
             else:
                 print(f" {message}")
@@ -226,3 +270,45 @@ class TurnManager:
             time.sleep(2)
         
         return responses
+    
+    def _trigger_narrator_intervention(self) -> None:
+        """Trigger narrator to create a scene transition."""
+        print("\n" + "="*70)
+        print("📖 NARRATIVE TRANSITION")
+        print("="*70)
+        
+        # Generate transition narrative
+        transition = self.narrator_manager.generate_transition_narrative(
+            current_scene=self.scene_manager.location,
+            recent_messages=self.scene.messages,
+            silence_rounds=self.consecutive_silence_rounds,
+            player_name=self.player_name
+        )
+        
+        print(f"\n{transition}\n")
+        print("="*70)
+        
+        # Add narrator message to scene
+        narrator_msg = self.message_manager.create_message(
+            speaker="Narrator",
+            content=f"[Scene Transition] {transition}"
+        )
+        self.message_manager.add_message(self.scene, narrator_msg)
+        
+        # Check if it's time for a wakeup event
+        if self.narrator_manager.should_trigger_wakeup():
+            time.sleep(2)
+            character_names = [char.persona.name for char in self.characters]
+            wakeup = self.narrator_manager.generate_wakeup_event(
+                self.player_name,
+                character_names
+            )
+            if wakeup:
+                print(f"\n{wakeup}\n")
+                print("="*70 + "\n")
+                # Add wakeup as narrator message
+                wakeup_msg = self.message_manager.create_message(
+                    speaker="Narrator",
+                    content=f"[Wakeup Event] {wakeup}"
+                )
+                self.message_manager.add_message(self.scene, wakeup_msg)

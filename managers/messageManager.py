@@ -16,9 +16,20 @@ class MessageManager:
         """Initialize MessageManager."""
         pass
     
-    def create_message(self, speaker: str, content: str, emotion: Optional[str] = None) -> Message:
+    def create_message(
+        self, 
+        speaker: str, 
+        content: str, 
+        action_description: Optional[str] = None,
+        emotion: Optional[str] = None
+    ) -> Message:
         """Create a new message instance."""
-        return Message(speaker=speaker, content=content, emotion=emotion)
+        return Message(
+            speaker=speaker, 
+            content=content, 
+            action_description=action_description,
+            emotion=emotion
+        )
     
     def add_message(
         self,

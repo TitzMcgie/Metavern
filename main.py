@@ -4,11 +4,16 @@ An AI-powered interactive storytelling experience with dynamic conversations.
 """
 
 import time
+from colorama import Fore, Style, init
 from roleplay_system import RoleplaySystem
 from config import Config
 from managers.storyManager import StoryManager
 from loaders.character_loader import load_characters
 from loaders.story_loader import load_story
+from helpers.withdrawal_detector import WithdrawalDetector
+
+# Initialize colorama for Windows color support
+init(autoreset=True)
 
 
 def setup_scene(system: RoleplaySystem, title: str, location: str, description: str) -> None:
@@ -52,6 +57,7 @@ have something to say, creating an organic, dynamic storytelling experience!
    • 'next' - Advance to the next story beat (when ready)
    • 'progress' - Check current story progress and objectives
    • 'info' - See character details
+   • 'reset' - Start a completely new conversation (deletes history)
    • 'quit' or 'exit' - End the session and save the conversation
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -118,27 +124,44 @@ def main():
             story_manager=story_manager
         )
         
-        # Setup the scene
-        setup_scene(system, SCENE_TITLE, SCENE_LOCATION, SCENE_DESCRIPTION)
+        # Initialize withdrawal detector
+        withdrawal_detector = WithdrawalDetector()
         
-        # Display initial story beat with full scene description
-        if story_manager:
-            current_beat = story_manager.get_current_beat()
-            if current_beat:
-                story_manager.display_beat_transition(current_beat)
-                if current_beat.get("scene_description"):
-                    story_manager.display_scene_description(current_beat["scene_description"])
+        # Check if we loaded an existing conversation
+        is_continuing = len(system.scene.messages) > 0
         
-        # Start the roleplay session
-        print("🎬 Starting the conversation...\n")
-        print("="*70)
-        
-        # Send initial greeting
-        print(f"\n💬 {PLAYER_NAME}: {INITIAL_GREETING}")
-        system._add_player_message(INITIAL_GREETING)
-        
-        # Let AI characters respond
-        ai_responses = system.turn_manager.process_ai_responses()
+        if not is_continuing:
+            # Only setup scene and send greeting for NEW conversations
+            # Setup the scene
+            setup_scene(system, SCENE_TITLE, SCENE_LOCATION, SCENE_DESCRIPTION)
+            
+            # Display initial story beat with full scene description
+            if story_manager:
+                current_beat = story_manager.get_current_beat()
+                if current_beat:
+                    story_manager.display_beat_transition(current_beat)
+                    if current_beat.get("scene_description"):
+                        story_manager.display_scene_description(current_beat["scene_description"])
+            
+            # Start the roleplay session
+            print("🎬 Starting the conversation...\n")
+            print("="*70)
+            
+            # Send initial greeting
+            print(f"\n💬 {PLAYER_NAME}: {INITIAL_GREETING}")
+            system._add_player_message(INITIAL_GREETING)
+            
+            # Let AI characters respond
+            ai_responses = system.turn_manager.process_ai_responses()
+        else:
+            # Continuing conversation - show recent messages
+            print("\n📜 RECENT CONVERSATION:")
+            print("="*70)
+            recent = system.scene.messages[-5:] if len(system.scene.messages) > 5 else system.scene.messages
+            for msg in recent:
+                print(f"💬 {msg.speaker}: {msg.content[:100]}{'...' if len(msg.content) > 100 else ''}")
+            print("="*70)
+            print("✨ Ready to continue!\n")
         
         # Main conversation loop
         message_count_at_beat_start = 0
@@ -186,22 +209,28 @@ def main():
                 if user_input and user_input.lower() not in ['listen', 'skip', 'next', 'progress', 'info', 'quit', 'exit']:
                     player_messages_count += 1
                 
-                # Handle player withdrawal (sleeping, leaving, etc.)
-                withdrawal_keywords = ['sleep', 'sleeping', 'asleep', 'went to sleep', 'going to sleep', 
-                                      'leave', 'leaving', 'left', 'went away', 'going away']
-                player_withdrawn = any(keyword in user_input.lower() for keyword in withdrawal_keywords)
+                # Handle player withdrawal using intelligent action bracket detection
+                is_withdrawing, dialogue, action = withdrawal_detector.detect_withdrawal(user_input, PLAYER_NAME)
                 
-                if player_withdrawn:
-                    print(f"\n💤 {PLAYER_NAME} has withdrawn from the conversation...")
-                    print("🗣️  The AI characters continue talking...\n")
+                if is_withdrawing:
+                    # Player is leaving - show withdrawal message
+                    print(withdrawal_detector.format_withdrawal_message(PLAYER_NAME, action))
+                    
+                    # Add the full message (including brackets) to conversation history
+                    # so AI characters can see what action the player took
                     system._add_player_message(user_input)
                     
-                    # Let AI characters talk for several turns
-                    for _ in range(3):
+                    # Let AI characters converse naturally about what just happened
+                    # They should react to player's statement before quieting down
+                    for turn_round in range(4):  # Allow more rounds for fuller conversation
                         ai_responses = system.turn_manager.process_ai_responses(max_turns=2)
                         if not ai_responses:
+                            # If no one speaks on first round, that's odd - try once more
+                            if turn_round == 0:
+                                time.sleep(1)
+                                continue
                             break
-                        time.sleep(1)
+                        time.sleep(1.5)
                     
                     print("\n" + "─"*70)
                     print("💬 (The conversation quiets down. Type 'listen' to hear more, or speak to rejoin)")
@@ -258,6 +287,22 @@ def main():
                     ai_responses = system.turn_manager.process_ai_responses(max_turns=5)
                     if not ai_responses:
                         print(f"\n💤 The conversation naturally pauses. Everyone seems to be waiting for {PLAYER_NAME} to say something.")
+                    continue
+                
+                # Handle reset command
+                if user_input.lower() == 'reset':
+                    confirm = input("\n⚠️  Are you sure you want to reset? This will delete all conversation history. (yes/no): ").strip().lower()
+                    if confirm in ['yes', 'y']:
+                        system.reset_conversation()
+                        # Restart with initial greeting
+                        setup_scene(system, SCENE_TITLE, SCENE_LOCATION, SCENE_DESCRIPTION)
+                        print(f"\n💬 {PLAYER_NAME}: {INITIAL_GREETING}")
+                        system._add_player_message(INITIAL_GREETING)
+                        ai_responses = system.turn_manager.process_ai_responses()
+                        message_count_at_beat_start = 0
+                        player_messages_count = 0
+                    else:
+                        print("\n✅ Reset cancelled. Continuing conversation...")
                     continue
                 
                 # Handle normal input

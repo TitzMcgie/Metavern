@@ -1,3 +1,4 @@
-google-generativeai
+openai
 pydantic
 python-dotenv
+colorama
