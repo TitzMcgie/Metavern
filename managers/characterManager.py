@@ -95,8 +95,8 @@ class CharacterManager:
             character.state.is_silent = is_silent
         
     
-    def build_charracter_context(self, character: Character) -> str:
-        """Build the character's personality and current mood context."""
+    def build_persona_context(self, character: Character) -> str:
+        """Build the character's personality context including traits, relationships, goals, and knowledge."""
         relationships_str = "\n".join([
             f"- {char}: {rel}" 
             for char, rel in character.persona.relationships.items()
@@ -123,35 +123,23 @@ class CharacterManager:
             knowledge_str = "\n".join(knowledge_items)
             context += f"\n\nYOUR SPECIAL KNOWLEDGE:\n{knowledge_str}"
         
-        # Add current state if available
-        if character.state:
-            context += f"\n\nYOUR CURRENT STATE:\n- Mood: {character.state.mood}"
-            if character.state.focus:
-                context += f"\n- Focus: {character.state.focus}"
-            if character.state.current_action:
-                context += f"\n- Current Action: {character.state.current_action}"
+        return context
+    
+    def build_state_context(self, character: Character) -> str:
+        """Build the character's current state context including mood, focus, and action."""
+        if not character.state:
+            return ""
+        
+        context = f"\n\nYOUR CURRENT STATE:\n- Mood: {character.state.mood}"
+        if character.state.focus:
+            context += f"\n- Focus: {character.state.focus}"
+        if character.state.current_action:
+            context += f"\n- Current Action: {character.state.current_action}"
         
         return context
     
-    def build_conversation_context(self, character: Character) -> str:
-        """Build the conversation context string with actions noted from character's perceived messages."""
-        context_lines = []
-        if character.memory and character.memory.perceived_messages:
-            for msg in character.memory.perceived_messages:
-                context_lines.append(f"{msg.speaker}: *{msg.action_description}* {msg.content}")
-        
-        return "\n".join(context_lines)
-    
-    def build_character_specific_context(self, character: Character) -> str:
-        """
-        Build conversation context from THIS character's perspective.
-        
-        Args:
-            character: The Character instance
-            
-        Returns:
-            Context string from character's POV (uses character's perceived messages)
-        """
+    def build_memory_context(self, character: Character) -> str:
+        """Build the memory context string with actions noted from character's perceived messages."""
         context_lines = []
         if character.memory and character.memory.perceived_messages:
             for msg in character.memory.perceived_messages:
@@ -183,8 +171,10 @@ class CharacterManager:
         """
 
         perceived_messages = character.memory.perceived_messages 
-        persona_context = self.build_charracter_context(character)
-        conversation_context = self.build_character_specific_context(character)
+
+        persona_context = self.build_persona_context(character)
+        state_context = self.build_state_context(character)
+        memory_context = self.build_memory_context(character)
         
         # Add internal knowledge if character has any
         private_context = ""
@@ -237,10 +227,10 @@ You are now with: {', '.join(other_characters)}
 - Be natural - friends chat about many topics when alone together
 """
         
-        prompt = f"""{persona_context}
+        prompt = f"""{persona_context}{state_context}
 {story_section}{private_context}{absence_context}
 WHAT YOU EXPERIENCED (your perspective):
-{conversation_context}
+{memory_context}
 
 DECISION:
 Based on YOUR experiences, YOUR traits, and YOUR current state, decide if you want to respond right now.
@@ -434,7 +424,7 @@ IMPORTANT:
         
         # Build enhanced prompt with timing
         persona_context = self.build_charracter_context(character)
-        conversation_context = self.build_conversation_context(character)
+        conversation_context = self.build_memory_context(character)
         
         # Check what this character said recently
         recent_own_messages = [msg.content for msg in messages[-5:] if msg.speaker == character.persona.name]
