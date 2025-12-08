@@ -30,6 +30,7 @@ class NarratorManager:
             "sounds": ["fire crackling", "wind outside"],
             "time_passed_hours": 0
         }
+        self.previous_descriptions = []  # Track previous environmental descriptions to avoid repetition
         
     def get_or_create_model(self) -> Any:
         """Get or create the generative model."""
@@ -115,15 +116,9 @@ class NarratorManager:
         Returns:
             True if narrator should intervene
         """
-        # Intervene after 2 rounds of silence
-        if silence_rounds >= 2:
+        # Intervene after 1 round of silence for environmental descriptions
+        if silence_rounds >= 1:
             return True
-        
-        # Also check if player has been absent for multiple rounds
-        if recent_messages:
-            last_speakers = [msg.speaker for msg in recent_messages[-5:]]
-            if player_name not in last_speakers and silence_rounds >= 1:
-                return True
         
         return False
     
@@ -147,8 +142,8 @@ class NarratorManager:
             Narrative transition text
         """
         try:
-            # Update environment based on time
-            time_change = self.advance_time(hours=2.0 if silence_rounds >= 2 else 1.0)
+            # Update environment based on time (shorter intervals for environmental descriptions)
+            time_change = self.advance_time(hours=0.5)  # Small time passage for environmental moments
             self.update_environment_for_time()
             
             # Build context from recent conversation
@@ -167,45 +162,66 @@ class NarratorManager:
                     # We rely on the withdrawal detector to have properly detected this
                     player_absent = True
             
+            # Build history context to avoid repetition
+            history_context = ""
+            if self.previous_descriptions:
+                recent_descs = self.previous_descriptions[-3:]  # Last 3 descriptions
+                history_context = "\n\nPREVIOUS DESCRIPTIONS (DO NOT REPEAT THESE):\n" + "\n".join([f"- {desc[:100]}" for desc in recent_descs])
+            
             prompt = f"""You are a narrator for an interactive Harry Potter roleplay story.
 
-CURRENT SITUATION:
+CURRENT ENVIRONMENT:
 - Time of day: {self.current_time_of_day}
 - Fire state: {self.environment_state['fire']}
 - Lighting: {self.environment_state['lighting']}
 - Location: Gryffindor Common Room
+- Sounds: {', '.join(self.environment_state['sounds'])}
 - Player ({player_name}) status: {"sleeping/resting" if player_absent else "present"}
 
 RECENT CONVERSATION:
 {conversation_summary}
 
 CONTEXT:
-The conversation has gone quiet. {silence_rounds} rounds of silence have passed.
-Time has advanced: {time_change}
+A moment of silence has fallen. The conversation paused naturally.{history_context}
 
 TASK:
-Write a brief, atmospheric narrative transition (2-4 sentences) that:
-1. Describes how time has passed (environmental changes)
-2. Shows the passage of time through details (fire dying, light changing, etc.)
-3. Creates a natural bridge to the next scene
-4. If it's morning now, describe someone waking up or the new day beginning
-5. If player is sleeping, you can describe them sleeping and others retiring/waking
+Write a BRIEF environmental description (1-2 sentences) that:
+1. Describes the CURRENT moment in the room (NOT time passage, NOT transitions)
+2. Focuses on sensory details: fire crackling, shadows, warmth, sounds, atmosphere
+3. Captures the mood and ambiance of THIS specific moment
+4. Makes the scene feel alive and immersive
+5. MUST be completely different from any previous descriptions above
 
-STYLE:
-- Vivid, sensory details (sight, sound, touch)
-- Atmospheric and immersive
-- Brief but evocative
-- Harry Potter universe tone
-- Present tense
+CRITICAL RULES:
+- DO NOT describe time passing or transitions
+- DO NOT repeat details from previous descriptions
+- Focus on NEW sensory details each time
+- Vary your observations: if you described the fire before, now describe the windows, shadows, sounds, temperature, etc.
+- Keep it brief: 1-2 sentences maximum
+- Present tense, atmospheric, Harry Potter tone
+
+EXAMPLES OF VARIETY:
+- First time: "The fire crackles softly in the hearth, casting warm shadows across the room."
+- Second time: "Outside, wind rattles the windows while the common room settles into comfortable quiet."
+- Third time: "The scent of old parchment and wood smoke hangs in the air, familiar and soothing."
+- Fourth time: "Portraits on the walls doze peacefully, their soft snores barely audible."
 
 OUTPUT:
-Just the narrative text, no quotes or labels. Write as the narrator.
+Just the environmental description, no quotes or labels. Write as the narrator.
 """
             
             model = self.get_or_create_model()
             response = model.generate_content(prompt)
             
-            return response.text.strip()
+            description = response.text.strip()
+            
+            # Store this description in history
+            self.previous_descriptions.append(description)
+            # Keep only last 5 descriptions
+            if len(self.previous_descriptions) > 5:
+                self.previous_descriptions.pop(0)
+            
+            return description
             
         except Exception as e:
             # Fallback to template-based transition

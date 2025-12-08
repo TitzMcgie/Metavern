@@ -272,31 +272,28 @@ class TurnManager:
         return responses
     
     def _trigger_narrator_intervention(self) -> None:
-        """Trigger narrator to create a scene transition."""
-        print("\n" + "="*70)
-        print("📖 NARRATIVE TRANSITION")
-        print("="*70)
+        """Trigger narrator to create an environmental description."""
+        print("\n" + "─"*70)
+        print("🌅 ENVIRONMENTAL MOMENT")
+        print("─"*70)
         
-        # Generate transition narrative
-        transition = self.narrator_manager.generate_transition_narrative(
+        # Generate environmental description
+        description = self.narrator_manager.generate_transition_narrative(
             current_scene=self.scene_manager.location,
             recent_messages=self.scene.messages,
             silence_rounds=self.consecutive_silence_rounds,
             player_name=self.player_name
         )
         
-        print(f"\n{transition}\n")
-        print("="*70)
+        print(f"\n{description}\n")
+        print("─"*70)
         
         # Add narrator message to scene
         narrator_msg = self.message_manager.create_message(
             speaker="Narrator",
-            content=f"[Scene Transition] {transition}"
+            content=f"[Environment] {description}"
         )
         self.message_manager.add_message(self.scene, narrator_msg)
-        
-        # Check if it's time for a wakeup event
-        if self.narrator_manager.should_trigger_wakeup():
             time.sleep(2)
             character_names = [char.persona.name for char in self.characters]
             wakeup = self.narrator_manager.generate_wakeup_event(
