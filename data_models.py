@@ -74,22 +74,40 @@ class CharacterPersona(BaseModel):
         default=None,
         description="Information, secrets, or world knowledge specific to this character"
     )
+    temperature: Optional[float] = Field(
+        default=None,
+        description="Model temperature for this character (affects response variability)"
+    )
+    top_p: Optional[float] = Field(
+        default=None,
+        description="Top-p sampling for this character"
+    )
+    frequency_penalty: Optional[float] = Field(
+        default=None,
+        description="Frequency penalty for this character (affects repetition)"
+    )
 
 class CharacterMemory(BaseModel):
     """
-    Represents a character's evolving understanding of the world, based on observations and personal interpretations. Stores charracter's spoken messages and observations.
+    Represents a character's evolving understanding of the world, based on observations and personal interpretations. 
+    Each character has their OWN perspective - what THEY experienced.
     """
 
     name: str = Field(..., description="Name of the character this memory belongs to")
 
     spoken_messages: List[Message] = Field(
         default_factory=list,
-        description="Messages spoken by the character"
+        description="Messages this character spoke (only their own messages)"
     )
 
-    observations: List[str] = Field(
+    perceived_messages: List[Message] = Field(
         default_factory=list,
-        description="Direct things the character has seen, heard, or experienced in the world and Conclusions, assumptions, or subjective beliefs formed"
+        description="Messages this character heard/experienced (full conversation from their POV, including their own messages)"
+    )
+
+    internal_thoughts: List[str] = Field(
+        default_factory=list,
+        description="Private thoughts, observations, conclusions - anything only THIS character knows that influences their decisions"
     )
 
 

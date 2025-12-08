@@ -253,7 +253,9 @@ def main():
                                 print("\n" + "="*70)
                                 print("🎉 STORY COMPLETED!")
                                 print("="*70)
-                                print(f"\nYou've completed: {story_arc.title}")
+                                # Handle both Story object and dict
+                                story_title = story_arc.title if hasattr(story_arc, 'title') else story_arc.get('title', 'The Story')
+                                print(f"\nYou've completed: {story_title}")
                                 print("The adventure concludes here... for now.")
                                 print("="*70 + "\n")
                         else:

@@ -196,23 +196,35 @@ class TurnManager:
         while consecutive_count < max_turns:
             # Check for story events ONLY after multiple AI turns (not immediately)
             # And only when conversation is flowing naturally, not at transition points
+            # Do NOT check for events if player has withdrawn or conversation is ending
             if self.story_manager and consecutive_count >= 2:
-                message_count = len(self.scene.messages)
-                event = self.story_manager.check_for_story_event(
-                    silence_duration=consecutive_count,
-                    message_count=message_count,
-                    recent_messages=self.scene.messages[-3:] if len(self.scene.messages) >= 3 else self.scene.messages
-                )
-                if event:
-                    self.story_manager.display_story_event(event)
-                    # Add event as a narrative message
-                    event_msg = self.message_manager.create_message(
-                        speaker="Narrator",
-                        content=f"[{event['title']}] {event['description']}"
+                # Check if player recently withdrew (last message has leaving action)
+                player_withdrawn = False
+                if self.scene.messages:
+                    last_msg = self.scene.messages[-1]
+                    if last_msg.action_description:
+                        from helpers.withdrawal_detector import WithdrawalDetector
+                        detector = WithdrawalDetector()
+                        player_withdrawn = detector.is_leaving_action(last_msg.action_description)
+                
+                # Only check for events if player hasn't withdrawn
+                if not player_withdrawn:
+                    message_count = len(self.scene.messages)
+                    event = self.story_manager.check_for_story_event(
+                        silence_duration=consecutive_count,
+                        message_count=message_count,
+                        recent_messages=self.scene.messages[-3:] if len(self.scene.messages) >= 3 else self.scene.messages
                     )
-                    self.message_manager.add_message(self.scene, event_msg)
-                    # Events interrupt the AI conversation flow
-                    break
+                    if event:
+                        self.story_manager.display_story_event(event)
+                        # Add event as a narrative message
+                        event_msg = self.message_manager.create_message(
+                            speaker="Narrator",
+                            content=f"[{event['title']}] {event['description']}"
+                        )
+                        self.message_manager.add_message(self.scene, event_msg)
+                        # Events interrupt the AI conversation flow
+                        break
             
             # Ask ONE character at a time (sequentially, not in parallel)
             # Note: select_next_speaker() prints its own "thinking" and "no one speaks" messages
@@ -254,6 +266,10 @@ class TurnManager:
             )
             self.message_manager.add_message(self.scene, message_obj)
             
+            # Broadcast this message to all characters' perceived messages
+            # Each character now has this in their own perspective
+            self.character_manager.broadcast_message_to_characters(self.characters, message_obj)
+            
             # Print with action description in cyan color if available
             print(f"\n💬 {character.persona.name}:", end="")
             if action_desc:
@@ -267,6 +283,12 @@ class TurnManager:
             
             # Small delay for readability and to let next character see the context
             time.sleep(2)
+        
+        # After the conversation loop ends, if we had responses, generate an environmental moment
+        # This creates atmosphere at natural conversation endpoints
+        if responses and consecutive_count > 0:
+            time.sleep(1)
+            self._trigger_narrator_intervention()
         
         return responses
     

@@ -247,6 +247,11 @@ Consider:
 2. Is the conversation at a natural transition point (going to sleep, leaving, etc.)?
 3. Are characters about to take an action that would be interrupted awkwardly?
 4. Is there an unresolved question or request that needs answering first?
+5. Are characters saying goodnight or going to sleep? (If yes, answer NO)
+6. Has someone just withdrawn or left? (If yes, answer NO)
+7. Is the conversation wrapping up naturally? (If yes, answer NO)
+
+CRITICAL: If people are going to sleep, saying goodnight, or the conversation is ending, answer NO.
 
 Respond with ONLY 'YES' if timing is good for an event, or 'NO' if it would be awkward/inappropriate."""
                 

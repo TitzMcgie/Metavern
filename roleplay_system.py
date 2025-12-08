@@ -143,6 +143,10 @@ class RoleplaySystem:
             action_description=action_desc
         )
         self.message_manager.add_message(self.scene, message)
+        
+        # Broadcast player message to all characters' perceived messages
+        # Each character now has this in their own perspective
+        self.character_manager.broadcast_message_to_characters(self.characters, message)
         self._save_conversation()
     
     def _add_ai_message(self, character: Character, content: str) -> None:
