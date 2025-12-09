@@ -21,7 +21,7 @@ class NarratorManager:
             model_name: Gemini model to use (defaults to Config.DEFAULT_MODEL)
         """
         self.model_name = model_name or Config.DEFAULT_MODEL
-        self.model = None
+        self.model = GenerativeModel(self.model_name)
         self.current_time_of_day = "evening"  # evening, night, late_night, dawn, morning, afternoon
         self.environment_state = {
             "fire": "crackling warmly",
@@ -31,12 +31,6 @@ class NarratorManager:
             "time_passed_hours": 0
         }
         self.previous_descriptions = []  # Track previous environmental descriptions to avoid repetition
-        
-    def get_or_create_model(self) -> Any:
-        """Get or create the generative model."""
-        if self.model is None:
-            self.model = GenerativeModel(self.model_name)
-        return self.model
     
     def advance_time(self, hours: float = 1.0) -> str:
         """

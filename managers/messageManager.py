@@ -20,61 +20,78 @@ class MessageManager:
         self, 
         speaker: str, 
         content: str, 
-        action_description: Optional[str] = None,
-        emotion: Optional[str] = None
+        action_description: str
     ) -> Message:
         """Create a new message instance."""
         return Message(
             speaker=speaker, 
             content=content, 
-            action_description=action_description,
-            emotion=emotion
+            action_description=action_description
         )
     
     def add_message(
         self,
-        scene: MessageHistory,
+        message_history: MessageHistory,
         message: Message
     ) -> Message:
         """
-        Add a message to the scene and update participants.
+        Add a message to the message_history and update participants.
         
         Args:
-            scene: MessageHistory instance to add message to
+            message_history: MessageHistory instance to add message to
             message: Message instance to add
             
         Returns:
             The added Message
         """
-        scene.messages.append(message)
+        message_history.messages.append(message)
         
-        # Update participants if new speaker
-        if message.speaker not in scene.participants:
-            scene.participants.append(message.speaker)
+        if message.speaker not in message_history.participants:
+            message_history.participants.append(message.speaker)
         
         return message
     
-    def get_recent_messages(self, scene: MessageHistory, n: int = 10) -> List[Message]:
+    def get_recent_messages(self, message_history: MessageHistory, n: int = 10) -> List[Message]:
         """
         Get the n most recent messages from history.
         
         Args:
-            scene: MessageHistory instance to retrieve from
+            message_history: MessageHistory instance to retrieve from
             n: Number of recent messages
             
         Returns:
             List of recent messages
         """
-        return scene.messages[-n:] if len(scene.messages) > n else scene.messages
+        return message_history.messages[-n:] if len(message_history.messages) > n else message_history.messages
     
-    def get_messages_by_speaker(self, scene: MessageHistory, speaker: str) -> List[Message]:
-        """Get all messages from a specific speaker."""
-        return [msg for msg in scene.messages if msg.speaker == speaker]
+    def create_message_history(
+        self,
+        title: Optional[str] = None,
+        scene_description: Optional[str] = None,
+        participants: Optional[List[str]] = None,
+        visible_to_user: bool = True,
+        location: Optional[str] = None
+    ) -> MessageHistory:
+        """
+        Create a new message history.
+        
+        Args:
+            title: Optional conversation title (e.g., 'Midnight Planning')
+            scene_description: Optional description of the scene or context
+            location: Optional location where conversation took place
+            participants: Optional initial participants list
+            visible_to_user: Whether user can view this conversation (default True)
+            
+        Returns:
+            New MessageHistory instance
+        """
+        
+        return MessageHistory(
+            title=title,
+            scene_description=scene_description,
+            location=location,
+            participants=participants,
+            visible_to_user=visible_to_user,
+            location = location
+        )
     
-    def get_messages_with_emotion(self, scene: MessageHistory, emotion: str) -> List[Message]:
-        """Get all messages with a specific emotion."""
-        return [msg for msg in scene.messages if msg.emotion == emotion]
-    
-    def get_message_count(self, scene: MessageHistory) -> int:
-        """Get total number of messages."""
-        return len(scene.messages)

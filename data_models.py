@@ -14,10 +14,7 @@ class Message(BaseModel):
 
     speaker: str = Field(..., description="Name of the character speaking")
     content: str = Field(..., description="Content of the message")
-    action_description: str = Field(
-        default=None,
-        description="Physical action or body language accompanying the message"
-    )
+    action_description: str = Field(..., description="Physical action or body language accompanying the message")
     timestamp: datetime = Field(
         default_factory=datetime.now,
         description="When this message was spoken"
@@ -52,6 +49,10 @@ class MessageHistory(BaseModel):
     visible_to_user: bool = Field(
         default=True,
         description="Whether the user can view this conversation (for private NPC chats, set False)"
+    )
+    location: Optional[str] = Field(
+        default=None,
+        description="Location where the conversation took place"
     )
 
 
