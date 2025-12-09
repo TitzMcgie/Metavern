@@ -103,19 +103,9 @@ class CharacterMemory(BaseModel):
 
     name: str = Field(..., description="Name of the character this memory belongs to")
 
-    spoken_messages: List[Message] = Field(
+    timeline_memory: List[TimelineEvent] = Field(
         default_factory=list,
-        description="Messages this character spoke (only their own messages)"
-    )
-
-    perceived_messages: List[Message] = Field(
-        default_factory=list,
-        description="Messages this character heard/experienced (full conversation from their POV, including their own messages)"
-    )
-
-    internal_thoughts: List[str] = Field(
-        default_factory=list,
-        description="Private thoughts, observations, conclusions - anything only THIS character knows that influences their decisions"
+        description="Scenes and Messages this character observed from its perspective"
     )
 
 

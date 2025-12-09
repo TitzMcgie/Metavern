@@ -29,10 +29,8 @@ class TurnManager:
     def __init__(
         self,
         characters: List[Character],
-        player_name: str,
+        timeline: TimelineHistory,
         story_manager: Optional[StoryManager] = None,
-        initial_location: str = "Common Room",
-        initial_scene_description: str = None,
         max_consecutive_ai_turns: int = None,
         priority_randomness: float = None
     ):
@@ -41,15 +39,13 @@ class TurnManager:
         
         Args:
             characters: List of AI characters in the conversation
-            player_name: Name of the human player
+            timeline: TimelineHistory instance containing all events and participants
             story_manager: Optional story manager for narrative progression
-            initial_location: Starting location for the timeline
-            initial_scene_description: Optional initial scene description
             max_consecutive_ai_turns: Maximum number of consecutive AI turns (defaults to Config.MAX_CONSECUTIVE_AI_TURNS)
             priority_randomness: Random factor to add to priority for naturalness (defaults to Config.PRIORITY_RANDOMNESS)
         """
         self.characters = characters
-        self.player_name = player_name
+        self.timeline = timeline
         self.story_manager = story_manager
         self.max_consecutive_ai_turns = max_consecutive_ai_turns or Config.MAX_CONSECUTIVE_AI_TURNS
         self.priority_randomness = priority_randomness or Config.PRIORITY_RANDOMNESS
@@ -57,20 +53,6 @@ class TurnManager:
         # Initialize managers
         self.timeline_manager = TimelineManager()
         self.character_manager = CharacterManager()
-        
-        # Initialize timeline
-        all_participants = [player_name] + [char.persona.name for char in characters]
-        self.timeline = self.timeline_manager.create_timeline_history(
-            title=f"Conversation at {initial_location}",
-            participants=all_participants
-        )
-        
-        # Add initial scene as first event
-        initial_scene = self.timeline_manager.create_scene(
-            location=initial_location,
-            description=initial_scene_description or f"The scene begins at {initial_location}."
-        )
-        self.timeline_manager.add_event(self.timeline, initial_scene)
         
         self.turn_count = 0
         self.consecutive_silence_rounds = 0
@@ -115,17 +97,7 @@ class TurnManager:
         
         # Display quota exceeded message if detected
         if quota_exceeded:
-            print("\n" + "="*70)
             print("⚠️  API QUOTA EXCEEDED")
-            print("="*70)
-            print("You've reached the free tier limit for Gemini API requests.")
-            print(f"Current model: {Config.DEFAULT_MODEL}")
-            print("Free tier limit: ~20 requests per minute")
-            print("\nOptions:")
-            print("  1. Wait ~40-60 seconds and try again")
-            print("  2. Check your usage at: https://ai.dev/usage?tab=rate-limit")
-            print("  3. Upgrade your plan for higher limits")
-            print("="*70 + "\n")
         
         return decisions
     

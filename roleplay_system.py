@@ -6,8 +6,9 @@ from typing import List, Optional
 from pathlib import Path
 import json
 
-from data_models import CharacterPersona, Character
+from data_models import CharacterPersona, Character, TimelineHistory
 from managers.turn_manager import TurnManager
+from managers.timelineManager import TimelineManager
 from config import Config
 
 
@@ -56,13 +57,32 @@ class RoleplaySystem:
             for persona in characters
         ]
         
-        # Create turn manager
+        # Create timeline manager
+        temp_timeline_manager = TimelineManager()
+        
+        # Create timeline with initial scene
+        participant_names = [player_name] + [char.persona.name for char in self.ai_characters]
+        timeline = temp_timeline_manager.create_timeline_history(
+            title="Group Roleplay Session",
+            participants=participant_names,
+            visible_to_user=True
+        )
+        
+        # Add initial scene
+        if not initial_scene_description:
+            initial_scene_description = f"The conversation begins in the {initial_location}."
+        
+        initial_scene = temp_timeline_manager.create_scene(
+            location=initial_location,
+            description=initial_scene_description
+        )
+        temp_timeline_manager.add_event(timeline, initial_scene)
+        
+        # Create turn manager with pre-built timeline
         self.turn_manager = TurnManager(
             characters=self.ai_characters,
-            player_name=player_name,
-            story_manager=story_manager,
-            initial_location=initial_location,
-            initial_scene_description=initial_scene_description
+            timeline=timeline,
+            story_manager=story_manager
         )
         
         # Get references to managers for direct access
