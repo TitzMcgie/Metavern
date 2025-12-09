@@ -9,50 +9,57 @@ from pydantic import BaseModel, Field
 import uuid
 
 
-class Message(BaseModel):
+class TimelineEvent(BaseModel):
+    """Base class for all timeline events (messages, scenes, etc.)."""
+    
+    timeline_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique identifier for this timeline event"
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.now,
+        description="When this event occurred"
+    )
+
+
+class Message(TimelineEvent):
     """Represents a single message in the conversation."""
 
     speaker: str = Field(..., description="Name of the character speaking")
     content: str = Field(..., description="Content of the message")
     action_description: str = Field(..., description="Physical action or body language accompanying the message")
-    timestamp: datetime = Field(
-        default_factory=datetime.now,
-        description="When this message was spoken"
-    )
 
 
-class MessageHistory(BaseModel):
+class Scene(TimelineEvent):
+    """
+    Represents a dynamic scene event that drives the story forward.
+    Part of the timeline alongside Message objects.
+    """
+    
+    location: str = Field(..., description="Where this scene event takes place")
+    description: str = Field(..., description="What happens in this scene event")
+
+
+class TimelineHistory(BaseModel):
     """Represents the complete conversation history."""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique ID for the conversation")
     title: Optional[str] = Field(default=None, description="Optional title for the conversation (e.g., 'Midnight Planning')")
-    scene_description: Optional[str] = Field(
-        default=None,
-        description="Description of the scene or context for this conversation (e.g., 'A quiet night in the library')"
-    )
-    messages: List[Message] = Field(
+    events: List[TimelineEvent] = Field(
         default_factory=list,
-        description="List of all messages exchanged in this conversation"
-    )
+        description="List of all timeline events (messages and scenes)"
+    ) 
     participants: List[str] = Field(
         default_factory=list,
         description="List of characters involved in this conversation"
     )
-    conversation_summary: Optional[str] = Field(
+    timeline_summary: Optional[str] = Field(
         default=None,
-        description="Brief automatically generated summary of the conversation"
-    )
-    start_time: str = Field(
-        default_factory=lambda: datetime.now().isoformat(),
-        description="When the conversation started"
+        description="Brief automatically generated summary of the timeline"
     )
     visible_to_user: bool = Field(
         default=True,
         description="Whether the user can view this conversation (for private NPC chats, set False)"
-    )
-    location: Optional[str] = Field(
-        default=None,
-        description="Location where the conversation took place"
     )
 
 

@@ -1,17 +1,17 @@
 """
-Scene Manager for autonomous scene transitions and environmental storytelling.
-Handles dynamic environment changes and narrative events.
+Scene Manager for dynamic scene events that drive story forward.
+Generates dramatic environmental events every time conversation stalls.
 """
 
 from typing import List, Optional, Dict, Any
 from config import Config
-from data_models import Message
+from data_models import Message, Scene
 from openrouter_client import GenerativeModel
 from helpers.response_parser import parse_json_response
 
 
 class SceneManager:
-    """Manages narrative transitions and environmental storytelling with dynamic, LLM-generated content."""
+    """Manages dynamic scene events that interrupt silence and push story forward."""
     
     def __init__(self, model_name: str = None):
         """
@@ -19,212 +19,162 @@ class SceneManager:
         """
         self.model_name = model_name or Config.DEFAULT_MODEL
         self.model = GenerativeModel(self.model_name)
-        self.environment_history = []
-        self.scene_context = {
-            "location": "Gryffindor Common Room",
-            "atmosphere": "warm and comfortable",
-            "notable_features": ["fireplace", "armchairs", "portraits", "windows"]
-        }
-        self.conversation_rounds = 0  # Track conversation progression
+        self.current_scene: Optional[Scene] = None
     
-    def update_scene_context(self, location: Optional[str] = None, atmosphere: Optional[str] = None):
-        """
-        Update scene context dynamically.
-        
-        Args:
-            location: New location description
-            atmosphere: New atmosphere description
-        """
-        if location:
-            self.scene_context["location"] = location
-        if atmosphere:
-            self.scene_context["atmosphere"] = atmosphere
-    
-    def detect_conversation_stagnation(
+    def create_scene(
         self,
-        silence_rounds: int,
-        recent_messages: List[Message],
-        player_name: str
-    ) -> bool:
+        location: str,
+        initial_description: str
+    ) -> Scene:
         """
-        Detect if conversation has stagnated and needs narrative intervention.
+        Create a new scene with initial description as first event.
         
         Args:
-            silence_rounds: Number of consecutive rounds with no speakers
-            recent_messages: Recent conversation messages
-            player_name: Name of the player character
+            location: Where this scene takes place
+            initial_description: Opening scene description (becomes first event)
             
         Returns:
-            True if scene should intervene
+            New Scene instance
         """
-        # Intervene after 1 round of silence for environmental descriptions
-        if silence_rounds >= 1:
-            return True
-        
-        return False
+        self.current_scene = Scene(
+            location=location,
+            recent_events=[initial_description],  
+            conversation_context=[]
+        )
+        return self.current_scene
     
-    def generate_transition_narrative(
-        self,
-        current_scene: str,
-        recent_messages: List[Message],
-        silence_rounds: int,
-        player_name: str
-    ) -> str:
+    def update_conversation_context(self, recent_messages: List[Message], max_context: int = 5):
         """
-        Generate a dynamic narrative transition using LLM.
+        Update scene's conversation context from recent messages.
         
         Args:
-            current_scene: Current scene description
             recent_messages: Recent conversation messages
-            silence_rounds: How many silent rounds
-            player_name: Name of the player character
-            
-        Returns:
-            Narrative transition text
+            max_context: Maximum number of topics to track
         """
-        try:
-            self.conversation_rounds += 1
-            
-            # Build context from recent conversation
-            conversation_summary = ""
-            if recent_messages:
-                last_few = recent_messages[-3:]
-                conversation_summary = "\n".join([f"{msg.speaker}: {msg.content[:100]}" for msg in last_few])
-            
-            # Check if player is absent using the withdrawal detector
-            from helpers.withdrawal_detector import WithdrawalDetector
-            
-            player_absent = False
-            if recent_messages:
-                last_msg = recent_messages[-1]
-                if last_msg.speaker == player_name and last_msg.action_description:
-                    detector = WithdrawalDetector()
-                    is_leaving = detector.is_leaving_action(last_msg.action_description)
-                    if is_leaving:
-                        player_absent = True
-            
-            # Build history context to avoid repetition
-            history_context = ""
-            if self.environment_history:
-                recent_envs = self.environment_history[-3:]
-                history_context = "\n\nPREVIOUS ENVIRONMENTAL DESCRIPTIONS (DO NOT REPEAT):\n" + "\n".join([f"- {desc[:100]}" for desc in recent_envs])
-            
-            prompt = f"""You are a narrator for an interactive Harry Potter roleplay story.
-
-CURRENT SCENE CONTEXT:
-- Location: {self.scene_context['location']}
-- Atmosphere: {self.scene_context['atmosphere']}
-- Conversation rounds: {self.conversation_rounds}
-- Player ({player_name}) status: {"away/resting" if player_absent else "present"}
-
-RECENT CONVERSATION:
-{conversation_summary}
-
-SITUATION:
-A moment of silence has fallen. The conversation naturally paused.{history_context}
-
-TASK:
-Generate a BRIEF environmental description (1-2 sentences) that brings the scene to life.
-
-The description should:
-1. Focus on SENSORY DETAILS (sights, sounds, smells, textures, temperature)
-2. Capture the MOOD and atmosphere of this specific moment
-3. Be COMPLETELY DIFFERENT from any previous descriptions above
-4. Vary what you observe each time (if you described fire before, now describe windows/portraits/sounds/smells/etc.)
-5. Allow time to naturally progress through environmental cues (firelight dimming, shadows lengthening, sounds changing, etc.)
-6. Be subtle and immersive - let the environment tell its own story
-
-OUTPUT FORMAT (strict JSON):
-{{
-  "description": "Your 1-2 sentence environmental description",
-  "time_progression": "subtle hint about time (e.g., 'time feels later', 'night deepening', 'hours passing', 'dawn approaching') or null if no time change"
-}}
-
-EXAMPLES OF VARIETY:
-- "The fire crackles softly in the hearth, casting warm dancing shadows across the stone walls."
-- "Outside, wind rattles the ancient windows while the common room settles into comfortable quiet."
-- "The scent of old parchment and wood smoke hangs in the air, familiar and soothing."
-- "Portraits on the walls doze peacefully, their soft snores barely audible in the stillness."
-- "The fire has burned lower now, embers glowing faintly as darkness gathers in the corners of the room."
-
-CRITICAL: 
-- Present tense, atmospheric, Harry Potter tone
-- Each description must observe something NEW
-- Let time pass naturally through environmental details
-- No quotes or labels in output"""
-            
-            response = self.model.generate_content(prompt, temperature=0.8)
-            result = parse_json_response(response.text)
-            
-            description = result.get("description", "").strip()
-            time_hint = result.get("time_progression")
-            
-            # Store in history
-            self.environment_history.append(description)
-            if len(self.environment_history) > 5:
-                self.environment_history.pop(0)
-            
-            return description
-            
-        except Exception as e:
-            # Fallback to simple atmospheric description
-            return self._generate_fallback_description()
+        if not self.current_scene:
+            return
+        
+        # Extract topics from recent messages
+        topics = []
+        for msg in recent_messages[-max_context:]:
+            # Simple topic extraction - can be enhanced
+            topics.append(f"{msg.speaker}: {msg.content[:50]}")
+        
+        self.current_scene.conversation_context = topics
     
-    def _generate_fallback_description(self) -> str:
-        """Generate a simple fallback description if AI fails."""
-        fallbacks = [
-            "The fire crackles softly, filling the common room with warmth and flickering light.",
-            "Shadows dance across the walls as the firelight flickers and shifts.",
-            "The room settles into a comfortable quiet, broken only by the occasional pop of a coal in the hearth.",
-            "Outside, wind whispers against the windows while the common room remains cozy and warm.",
-            "The familiar scent of old books and wood smoke fills the air."
-        ]
-        import random
-        return random.choice(fallbacks)
-    
-    def generate_scene_change(
+    def generate_scene_event(
         self,
-        new_location: str,
-        context: str,
+        recent_messages: List[Message],
         characters_present: List[str]
     ) -> str:
         """
-        Generate a scene transition to a new location.
+        Generate a dramatic scene event when conversation stalls.
+        Called EVERY time there's a silence round.
         
         Args:
-            new_location: The new location to transition to
-            context: Context about why the scene is changing
-            characters_present: List of character names present
+            recent_messages: Recent conversation to understand context
+            characters_present: Names of characters in the scene
             
         Returns:
-            Scene transition description
+            Description of the dramatic event
         """
+        if not self.current_scene:
+            return "The room remains quiet."
+        
         try:
-            prompt = f"""You are narrating a Harry Potter story. Generate a brief scene transition.
+            # Update conversation context
+            self.update_conversation_context(recent_messages)
+            
+            # Build context for event generation
+            conversation_summary = ""
+            if self.current_scene.conversation_context:
+                conversation_summary = "\n".join(self.current_scene.conversation_context)
+            
+            # Build history to avoid repetition (skip first event which is initial description)
+            recent_events_str = ""
+            if len(self.current_scene.recent_events) > 1:
+                # Skip the first event (initial description) when showing previous events
+                events_to_show = self.current_scene.recent_events[1:-1][-3:]  # Last 3 events, excluding initial description
+                if events_to_show:
+                    recent_events_str = "\n\nPREVIOUS EVENTS (DO NOT REPEAT):\n" + "\n".join([f"- {event}" for event in events_to_show])
+            
+            prompt = f"""You are generating a DRAMATIC SCENE EVENT for a Harry Potter roleplay story.
 
-TRANSITION:
-- From: {self.scene_context['location']}
-- To: {new_location}
-- Characters: {', '.join(characters_present)}
-- Context: {context}
+CURRENT SCENE:
+- Location: {self.current_scene.location}
+- Initial Setting: {self.current_scene.recent_events[0]}
+- Characters Present: {', '.join(characters_present)}
+- Events Triggered So Far: {len(self.current_scene.recent_events) - 1}
 
-Write a vivid 2-3 sentence description of the characters moving to the new location.
-Include sensory details and atmosphere. Present tense, Harry Potter tone.
+RECENT CONVERSATION:
+{conversation_summary}{recent_events_str}
+
+SITUATION:
+The conversation has stalled. Silence has fallen. You need to generate a DRAMATIC ENVIRONMENTAL EVENT that:
+
+1. **Interrupts the silence** with something happening in the environment
+2. **Demands character attention** - they MUST notice and react
+3. **Pushes story forward** - reveals clues, creates new tension, or advances plot
+4. **Is completely different** from previous events above
+
+EVENT TYPES (choose dynamically):
+- **Physical**: Wind blows, object falls, door slams, temperature changes
+- **Discovery**: Hidden object revealed, clue appears, book falls open
+- **Mysterious**: Strange sound, shadow moves, magic activates
+- **Danger**: Warning sign, threat appears, protective spell triggers
+- **Character**: Someone enters, portrait speaks, ghost appears
+
+CRITICAL RULES:
+- Make it SPECIFIC and VIVID (not generic)
+- Include sensory details (what they see/hear/feel)
+- Event should naturally lead to new conversation
+- Must be something characters can react to
+- Vary the type of event - don't repeat patterns
 
 OUTPUT FORMAT (strict JSON):
 {{
-  "transition": "Your scene transition description"
+  "event_description": "2-3 sentence vivid description of what happens",
+  "character_awareness": "What characters notice/feel about this event"
+}}
+
+EXAMPLE:
+{{
+  "event_description": "A sudden gust of ice-cold wind tears through the library, extinguishing half the torches. Pages flutter wildly as a single ancient book slides off a high shelf and crashes open on the table between them—landing on a page marked with a glowing symbol.",
+  "character_awareness": "Both freeze. The symbol on the page is identical to the one from Ron's failed spell."
 }}"""
             
-            response = self.model.generate_content(prompt, temperature=0.8)
+            response = self.model.generate_content(prompt, temperature=0.85)
             result = parse_json_response(response.text)
             
-            transition = result.get("transition", "").strip()
+            event_desc = result.get("event_description", "").strip()
+            awareness = result.get("character_awareness", "").strip()
             
-            # Update scene context
-            self.scene_context["location"] = new_location
+            # Combine description and awareness
+            full_event = f"{event_desc}\n\n{awareness}" if awareness else event_desc
             
-            return transition
+            # Track this event
+            self.current_scene.recent_events.append(event_desc)
+            
+            # Keep initial description + last 5 events (total 6 items max)
+            # First event (index 0) is always the initial scene description
+            if len(self.current_scene.recent_events) > 6:
+                # Remove oldest event but keep initial description
+                self.current_scene.recent_events.pop(1)
+            
+            return full_event
             
         except Exception as e:
-            return f"The group makes their way to {new_location}."
+            # Fallback event
+            return self._generate_fallback_event()
+    
+    def _generate_fallback_event(self) -> str:
+        """Generate a simple fallback event if AI fails."""
+        import random
+        fallback_events = [
+            "A sudden draft causes the fire to flare up, casting dramatic shadows across the walls. Everyone looks up instinctively.",
+            "A distant sound echoes through the castle—something heavy falling. The room feels suddenly tense.",
+            "One of the portraits on the wall clears its throat loudly, clearly trying to get everyone's attention.",
+            "A book falls from a nearby shelf with a loud thud, landing open to a marked page.",
+            "The torches flicker strangely, and for a moment, the shadows seem to move independently."
+        ]
+        return random.choice(fallback_events)
