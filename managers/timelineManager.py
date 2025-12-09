@@ -7,7 +7,7 @@ from typing import List, Optional
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from data_models import Message, Scene, TimelineHistory, TimelineEvent, Character
+from data_models import Message, Scene, TimelineHistory, TimelineEvent
 from config import Config
 from openrouter_client import GenerativeModel
 from helpers.response_parser import parse_json_response
@@ -234,7 +234,6 @@ class TimelineManager:
     def generate_scene_event(
         self,
         timeline: TimelineHistory,
-        characters_present: List[str],
         recent_event_count: int = 15
     ) -> Scene:
         """
@@ -243,7 +242,6 @@ class TimelineManager:
         
         Args:
             timeline: TimelineHistory instance
-            characters_present: Names of characters in the scene
             recent_event_count: How many recent events to consider for context
             
         Returns:
@@ -270,19 +268,10 @@ class TimelineManager:
             
             timeline_str = "\n".join(timeline_context) if timeline_context else "No recent activity"
             
-            # Get initial scene description (should be first event)
-            initial_scene = timeline.events[0] if timeline.events and isinstance(timeline.events[0], Scene) else None
-            initial_setting = initial_scene.description if initial_scene else "Standard scene"
-            
-            # Count scene events (excluding initial scene)
-            scene_count = sum(1 for e in timeline.events[1:] if isinstance(e, Scene))
-            
             prompt = f"""You are generating a DRAMATIC SCENE EVENT for a Harry Potter roleplay story.
             CURRENT SCENE:
             - Location: {current_location}
-            - Initial Setting: {initial_setting}
-            - Characters Present: {', '.join(characters_present)}
-            - Scene Events So Far: {scene_count}
+            - Characters Present: {', '.join(timeline.participants)}
 
             RECENT TIMELINE (in chronological order):
             {timeline_str}
@@ -321,10 +310,7 @@ class TimelineManager:
             
             response = self.model.generate_content(prompt, temperature=0.85)
             result = parse_json_response(response.text)
-            
             event_desc = result.get("event_description", "").strip()
-            
-            # Create and add the scene
             scene = self.add_scene(timeline, current_location, event_desc)
             
             return scene

@@ -301,16 +301,11 @@ class TurnManager:
         print("🌅 SCENE EVENT")
         print("─"*70)
         
-        # Get characters present
-        character_names = [char.persona.name for char in self.characters]
-        all_present = [self.player_name] + character_names
-        
         # Generate scene event
         try:
             scene = self.timeline_manager.generate_scene_event(
                 timeline=self.timeline,
-                characters_present=all_present,
-                recent_message_count=10
+                recent_event_count=15
             )
             
             print(f"\n{scene.description}\n")
