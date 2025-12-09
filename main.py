@@ -10,24 +10,19 @@ from config import Config
 from managers.storyManager import StoryManager
 from loaders.character_loader import load_characters
 from loaders.story_loader import load_story
-from helpers.withdrawal_detector import WithdrawalDetector
 
 # Initialize colorama for Windows color support
 init(autoreset=True)
 
 
-def setup_scene(system: RoleplaySystem, title: str, location: str, description: str) -> None:
-    """Set up the initial scene for the roleplay."""
-    system.scene_manager.update_title(title)
-    system.scene_manager.update_location(location)
-    system.scene_manager.update_plot(description)
-    
+def display_initial_scene(title: str, location: str, description: str) -> None:
+    """Display the initial scene for the roleplay."""
     print("\n" + "="*70)
     print(f"🎬 SCENE: {title.upper()}")
     print("="*70)
-    print(f"\n📍 Location: {system.scene_manager.location}")
+    print(f"\n📍 Location: {location}")
     print(f"\n📖 Setting:")
-    print(f"   {system.scene_manager.plot}")
+    print(f"   {description}")
     print("\n" + "="*70 + "\n")
 
 
@@ -121,19 +116,18 @@ def main():
             player_name=PLAYER_NAME,
             characters=characters,
             model_name=Config.DEFAULT_MODEL,
-            story_manager=story_manager
+            story_manager=story_manager,
+            initial_location=SCENE_LOCATION,
+            initial_scene_description=SCENE_DESCRIPTION
         )
         
-        # Initialize withdrawal detector
-        withdrawal_detector = WithdrawalDetector()
-        
         # Check if we loaded an existing conversation
-        is_continuing = len(system.scene.messages) > 0
+        is_continuing = len(system.timeline.events) > 1  # More than just initial scene
         
         if not is_continuing:
-            # Only setup scene and send greeting for NEW conversations
-            # Setup the scene
-            setup_scene(system, SCENE_TITLE, SCENE_LOCATION, SCENE_DESCRIPTION)
+            # Only display scene and send greeting for NEW conversations
+            # Display the initial scene
+            display_initial_scene(SCENE_TITLE, SCENE_LOCATION, SCENE_DESCRIPTION)
             
             # Display initial story beat with full scene description
             if story_manager:
@@ -154,12 +148,16 @@ def main():
             # Let AI characters respond
             ai_responses = system.turn_manager.process_ai_responses()
         else:
-            # Continuing conversation - show recent messages
+            # Continuing conversation - show recent events
             print("\n📜 RECENT CONVERSATION:")
             print("="*70)
-            recent = system.scene.messages[-5:] if len(system.scene.messages) > 5 else system.scene.messages
-            for msg in recent:
-                print(f"💬 {msg.speaker}: {msg.content[:100]}{'...' if len(msg.content) > 100 else ''}")
+            recent_events = system.timeline_manager.get_recent_events(system.timeline, count=5)
+            from data_models import Message, Scene
+            for event in recent_events:
+                if isinstance(event, Message):
+                    print(f"💬 {event.speaker}: {event.content[:100]}{'...' if len(event.content) > 100 else ''}")
+                elif isinstance(event, Scene):
+                    print(f"🎬 [Scene at {event.location}]: {event.description[:80]}{'...' if len(event.description) > 80 else ''}")
             print("="*70)
             print("✨ Ready to continue!\n")
         
@@ -172,25 +170,36 @@ def main():
                 # Story progression logic (only if story manager exists)
                 if story_manager:
                     current_beat = story_manager.get_current_beat()
-                    current_message_count = len(system.scene.messages)
-                    messages_in_beat = current_message_count - message_count_at_beat_start
-                    story_manager.messages_in_current_beat = messages_in_beat
+                    current_event_count = len(system.timeline.events)
+                    events_in_beat = current_event_count - message_count_at_beat_start
+                    story_manager.messages_in_current_beat = events_in_beat
                     
                     # Check for story events periodically
                     if player_messages_count > 0 and player_messages_count % 3 == 0:
-                        event = story_manager.check_for_story_event(silence_duration=2)
+                        recent_events = system.timeline_manager.get_recent_events(system.timeline)
+                        event = story_manager.check_for_story_event(
+                            silence_duration=2,
+                            message_count=len(recent_events),
+                            recent_messages=recent_events[-3:] if len(recent_events) >= 3 else recent_events
+                        )
                         if event:
                             story_manager.display_story_event(event)
-                            event_msg = system.message_manager.create_message(
-                                speaker="Narrator",
-                                content=f"[Event: {event.title}] {event.description}"
+                            # Add as a scene event
+                            current_location = system.timeline_manager.get_current_location(system.timeline)
+                            scene = system.timeline_manager.create_scene(
+                                location=current_location or SCENE_LOCATION,
+                                description=f"[{event['title']}] {event['description']}"
                             )
-                            system.message_manager.add_message(system.scene, event_msg)
+                            system.timeline_manager.add_event(system.timeline, scene)
+                            # Broadcast to all characters
+                            system.character_manager.broadcast_event_to_characters(system.ai_characters, scene)
                     
                     # Check if we can advance story
                     can_advance = False
-                    if current_beat and messages_in_beat >= current_beat.get("min_messages", 10):
-                        recent_messages = system.scene.messages[-15:]
+                    if current_beat and events_in_beat >= current_beat.get("min_messages", 10):
+                        from data_models import Message
+                        recent_events = system.timeline_manager.get_recent_events(system.timeline, count=15)
+                        recent_messages = [evt for evt in recent_events if isinstance(evt, Message)]
                         summary = " ".join([msg.content for msg in recent_messages])
                         if story_manager.check_beat_completion(summary):
                             can_advance = True
@@ -209,40 +218,13 @@ def main():
                 if user_input and user_input.lower() not in ['listen', 'skip', 'next', 'progress', 'info', 'quit', 'exit']:
                     player_messages_count += 1
                 
-                # Handle player withdrawal using intelligent action bracket detection
-                is_withdrawing, dialogue, action = withdrawal_detector.detect_withdrawal(user_input, PLAYER_NAME)
-                
-                if is_withdrawing:
-                    # Player is leaving - show withdrawal message
-                    print(withdrawal_detector.format_withdrawal_message(PLAYER_NAME, action))
-                    
-                    # Add the full message (including brackets) to conversation history
-                    # so AI characters can see what action the player took
-                    system._add_player_message(user_input)
-                    
-                    # Let AI characters converse naturally about what just happened
-                    # They should react to player's statement before quieting down
-                    for turn_round in range(4):  # Allow more rounds for fuller conversation
-                        ai_responses = system.turn_manager.process_ai_responses(max_turns=2)
-                        if not ai_responses:
-                            # If no one speaks on first round, that's odd - try once more
-                            if turn_round == 0:
-                                time.sleep(1)
-                                continue
-                            break
-                        time.sleep(1.5)
-                    
-                    print("\n" + "─"*70)
-                    print("💬 (The conversation quiets down. Type 'listen' to hear more, or speak to rejoin)")
-                    continue
-                
                 # Handle story advancement command
                 if user_input.lower() in ['next', 'advance', 'continue story']:
                     if story_manager:
                         if can_advance:
                             advanced = story_manager.advance_story()
                             if advanced:
-                                message_count_at_beat_start = current_message_count
+                                message_count_at_beat_start = current_event_count
                                 player_messages_count = 0
                                 new_beat = story_manager.get_current_beat()
                                 if new_beat:
@@ -261,9 +243,9 @@ def main():
                         else:
                             current_beat = story_manager.get_current_beat()
                             min_needed = current_beat.get("min_messages", 10) if current_beat else 10
-                            remaining = max(0, min_needed - messages_in_beat)
+                            remaining = max(0, min_needed - events_in_beat)
                             print(f"\n⏳ The story isn't quite ready to advance yet.")
-                            print(f"   Continue the conversation ({remaining} more messages recommended)")
+                            print(f"   Continue the conversation ({remaining} more events recommended)")
                             print(f"   and work toward the current objectives.\n")
                     else:
                         print("\n⚠️  No story loaded - cannot advance.")
@@ -278,7 +260,7 @@ def main():
                             print("🎯 Current Objectives:")
                             for obj in beat.get("objectives", []):
                                 print(f"   • {obj}")
-                            print(f"\n📊 Messages in this beat: {messages_in_beat}/{beat.get('min_messages', 10)} minimum")
+                            print(f"\n📊 Events in this beat: {events_in_beat}/{beat.get('min_messages', 10)} minimum")
                     else:
                         print("\n⚠️  No story loaded.")
                     continue
@@ -297,7 +279,13 @@ def main():
                     if confirm in ['yes', 'y']:
                         system.reset_conversation()
                         # Restart with initial greeting
-                        setup_scene(system, SCENE_TITLE, SCENE_LOCATION, SCENE_DESCRIPTION)
+                        display_initial_scene(SCENE_TITLE, SCENE_LOCATION, SCENE_DESCRIPTION)
+                        # Re-add initial scene to timeline
+                        initial_scene = system.timeline_manager.create_scene(
+                            location=SCENE_LOCATION,
+                            description=SCENE_DESCRIPTION
+                        )
+                        system.timeline_manager.add_event(system.timeline, initial_scene)
                         print(f"\n💬 {PLAYER_NAME}: {INITIAL_GREETING}")
                         system._add_player_message(INITIAL_GREETING)
                         ai_responses = system.turn_manager.process_ai_responses()
@@ -321,12 +309,15 @@ def main():
                 print("Please try again or type 'quit' to exit.")
         
         # Display session statistics
-        stats = system.get_statistics()
+        from data_models import Message
+        total_events = len(system.timeline.events)
+        total_messages = sum(1 for evt in system.timeline.events if isinstance(evt, Message))
         print("\n" + "="*70)
         print("📊 SESSION STATISTICS")
         print("="*70)
-        print(f"Total messages exchanged: {stats['total_messages']}")
-        print(f"Participants: {', '.join(stats['ai_characters'] + [stats['player_name']])}")
+        print(f"Total timeline events: {total_events}")
+        print(f"Total messages exchanged: {total_messages}")
+        print(f"Participants: {', '.join(system.timeline.participants)}")
         print(f"💾 Conversation saved to: {system.get_conversation_file_path()}")
         print("="*70)
         print("\n✨ Thanks for using RoleRealm! Until next time! 🎭\n")

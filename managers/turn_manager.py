@@ -121,8 +121,8 @@ class TurnManager:
         
         # Return the highest priority character with their action and message
         selected_character, decision_tuple, _ = decisions_with_adjusted_priority[0]
-        action_desc = decision_tuple[3]  # Extract action description
-        message = decision_tuple[4]  # Extract message from tuple
+        action_desc = decision_tuple[3]  
+        message = decision_tuple[4]  
         return (selected_character, action_desc, message)
     
     def select_next_speaker(self) -> Optional[Tuple[Character, Optional[str], str]]:
@@ -133,7 +133,7 @@ class TurnManager:
             Tuple of (character, action_description, message) for the selected speaker, or None
         """
         # Check if there are any events in the timeline
-        recent_events = self.timeline_manager.get_recent_events(self.timeline)
+        recent_events = self.timeline_manager.get_recent_events(timeline=self.timeline)
         if not recent_events:
             return None
         

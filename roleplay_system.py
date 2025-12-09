@@ -156,16 +156,16 @@ class RoleplaySystem:
         if not action_desc:
             action_desc = "speaks"
         
-        message = self.timeline_manager.add_message(
-            self.timeline,
+        # Create and add message to timeline
+        message = self.timeline_manager.create_message(
             speaker=self.player_name,
             content=dialogue,
             action_description=action_desc
         )
+        self.timeline_manager.add_message(self.timeline, message)
         
-        # Broadcast player message to all characters' perceived messages
-        # Each character now has this in their own perspective
-        self.character_manager.broadcast_message_to_characters(self.ai_characters, message)
+        # Broadcast player message as a TimelineEvent to all characters
+        self.character_manager.broadcast_event_to_characters(self.ai_characters, message)
         self._save_conversation()
     
     def get_conversation_file_path(self) -> Path:
