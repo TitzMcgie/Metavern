@@ -1,22 +1,22 @@
 # RoleRealm
 
-An interactive AI-powered roleplay system that brings characters to life through dynamic conversations and story-driven experiences, powered by Google's Gemini API.
+An interactive AI-powered roleplay system that brings characters to life through dynamic conversations and story-driven experiences, powered by OpenRouter API.
 
 ## Features
 
-- 🎭 **Dynamic Character Interactions** - Create and interact with multiple AI characters, each with unique personalities and speaking styles
-- 💬 **Natural Conversations** - Advanced conversation management with full context awareness
-- 📖 **Story Progression System** - Structure your narratives with story arcs, scenes, and objectives
-- 💾 **Persistent Sessions** - Automatic chat history and story state saving
-- 🔄 **Context Awareness** - Characters remember past interactions across sessions
-- 👥 **Multi-Character Support** - Seamlessly manage conversations with multiple AI characters
+- **Dynamic Character Interactions** - Create and interact with multiple AI characters, each with unique personalities and speaking styles
+- **Natural Conversations** - Advanced conversation management with full context awareness
+- **Story Progression System** - Structure your narratives with story arcs, scenes, and objectives
+- **Persistent Sessions** - Automatic chat history and story state saving
+- **Context Awareness** - Characters remember past interactions across sessions
+- **Multi-Character Support** - Seamlessly manage conversations with multiple AI characters
 
 ## Getting Started
 
 ### Prerequisites
 
 - Python 3.8+
-- Google Gemini API key
+- OpenRouter API key
 
 ### Installation
 
@@ -31,9 +31,9 @@ cd RoleRealm
 pip install -r requirements.txt
 ```
 
-3. Create a `.env` file and add your Gemini API key:
+3. Create a `.env` file and add your OpenRouter API key:
 ```
-GEMINI_API_KEY=your_api_key_here
+OPENROUTER_API_KEY=your_api_key_here
 ```
 
 ### Running RoleRealm
