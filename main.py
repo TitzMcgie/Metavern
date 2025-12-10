@@ -151,7 +151,7 @@ def main():
             # Continuing conversation - show recent events
             print("\n📜 RECENT CONVERSATION:")
             print("="*70)
-            recent_events = system.timeline_manager.get_recent_events(system.timeline, count=5)
+            recent_events = system.timeline_manager.get_recent_events(system.timeline, n=5)
             from data_models import Message, Scene
             for event in recent_events:
                 if isinstance(event, Message):

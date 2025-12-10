@@ -4,6 +4,7 @@ Main roleplay system coordinator.
 
 from typing import List, Optional
 from pathlib import Path
+from datetime import datetime
 import json
 
 from data_models import CharacterPersona, Character, TimelineHistory
@@ -86,7 +87,8 @@ class RoleplaySystem:
         self.turn_manager = TurnManager(
             characters=self.ai_characters,
             timeline=timeline,
-            story_manager=story_manager
+            story_manager=story_manager,
+            save_callback=lambda: self._save_conversation()
         )
         
         # Get references to managers for direct access
@@ -117,13 +119,55 @@ class RoleplaySystem:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            # TODO: Implement timeline restoration from saved data
-            # For now, just note that we would load it
+            # Restore timeline from saved data
+            from data_models import Message, Scene
+            
+            # Clear current timeline events
+            self.timeline.events.clear()
+            
+            # Restore timeline metadata
+            if 'id' in data:
+                self.timeline.id = data['id']
+            if 'title' in data:
+                self.timeline.title = data['title']
+            if 'participants' in data:
+                self.timeline.participants = data['participants']
+            if 'timeline_summary' in data:
+                self.timeline.timeline_summary = data['timeline_summary']
+            if 'visible_to_user' in data:
+                self.timeline.visible_to_user = data['visible_to_user']
+            
+            # Restore events (messages and scenes)
+            for event_data in data.get('events', []):
+                if 'speaker' in event_data:
+                    # This is a Message
+                    message = Message(
+                        timeline_id=event_data.get('timeline_id'),
+                        timestamp=datetime.fromisoformat(event_data['timestamp']) if 'timestamp' in event_data else datetime.now(),
+                        speaker=event_data['speaker'],
+                        content=event_data['content'],
+                        action_description=event_data['action_description']
+                    )
+                    self.timeline.events.append(message)
+                elif 'location' in event_data:
+                    # This is a Scene
+                    scene = Scene(
+                        timeline_id=event_data.get('timeline_id'),
+                        timestamp=datetime.fromisoformat(event_data['timestamp']) if 'timestamp' in event_data else datetime.now(),
+                        location=event_data['location'],
+                        description=event_data['description']
+                    )
+                    self.timeline.events.append(scene)
+            
+            # Broadcast all events to characters so they have the full context
+            for event in self.timeline.events:
+                self.character_manager.broadcast_event_to_characters(self.ai_characters, event)
             
             print("\n" + "="*70)
             print("📂 LOADED EXISTING CONVERSATION")
             print("="*70)
-            print(f"Restored timeline from previous session")
+            print(f"Restored {len(self.timeline.events)} events from previous session")
+            print(f"Participants: {', '.join(self.timeline.participants)}")
             print(f"Continuing from where you left off...")
             print("="*70 + "\n")
             
@@ -135,13 +179,21 @@ class RoleplaySystem:
             return False
     
     def _save_conversation(self) -> None:
-        """Save the current conversation to a JSON file."""
+        """Save the current conversation to a JSON file in TimelineHistory format."""
         filename = "group_chat.json"
         filepath = self.chat_storage_dir / filename
         
-        with open(filepath, 'w', encoding='utf-8') as f:
-            # Convert timeline to dict for JSON serialization
-            json.dump(self.timeline.dict(), f, indent=2, ensure_ascii=False, default=str)
+        try:
+            # Use Pydantic's model_dump (or dict for older versions) to serialize
+            timeline_data = self.timeline.model_dump(mode='json')
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(timeline_data, f, indent=2, ensure_ascii=False, default=str)
+        except AttributeError:
+            # Fallback for older Pydantic versions
+            timeline_data = self.timeline.dict()
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(timeline_data, f, indent=2, ensure_ascii=False, default=str)
     
     def _add_player_message(self, content: str) -> None:
         """Add a player message to the conversation."""

@@ -32,7 +32,8 @@ class TurnManager:
         timeline: TimelineHistory,
         story_manager: Optional[StoryManager] = None,
         max_consecutive_ai_turns: int = None,
-        priority_randomness: float = None
+        priority_randomness: float = None,
+        save_callback: Optional[callable] = None
     ):
         """
         Initialize the turn manager.
@@ -43,12 +44,14 @@ class TurnManager:
             story_manager: Optional story manager for narrative progression
             max_consecutive_ai_turns: Maximum number of consecutive AI turns (defaults to Config.MAX_CONSECUTIVE_AI_TURNS)
             priority_randomness: Random factor to add to priority for naturalness (defaults to Config.PRIORITY_RANDOMNESS)
+            save_callback: Optional callback function to save conversation after AI responses
         """
         self.characters = characters
         self.timeline = timeline
         self.story_manager = story_manager
         self.max_consecutive_ai_turns = max_consecutive_ai_turns or Config.MAX_CONSECUTIVE_AI_TURNS
         self.priority_randomness = priority_randomness or Config.PRIORITY_RANDOMNESS
+        self.save_callback = save_callback
         
         # Initialize managers
         self.timeline_manager = TimelineManager()
@@ -196,6 +199,7 @@ class TurnManager:
             if result is None:
                 # No one wants to speak - increment silence counter
                 self.consecutive_silence_rounds += 1
+                print(f"🔕 Silence round {self.consecutive_silence_rounds}/2")
                 
                 # Generate scene event when conversation stalls
                 if self.consecutive_silence_rounds >= 2:
@@ -243,6 +247,10 @@ class TurnManager:
             # Small delay for readability and to let next character see the context
             time.sleep(2)
         
+        # Save conversation after AI responses if callback is provided
+        if responses and self.save_callback:
+            self.save_callback()
+        
         return responses
     
     def _generate_scene_event(self) -> None:
@@ -266,6 +274,10 @@ class TurnManager:
             
             # Broadcast scene event to all characters so they're aware of it
             self.character_manager.broadcast_event_to_characters(self.characters, scene)
+            
+            # Save conversation after scene event if callback is provided
+            if self.save_callback:
+                self.save_callback()
             
             time.sleep(2)
             
