@@ -7,7 +7,7 @@ from typing import List, Optional
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from data_models import Message, Scene, TimelineHistory, TimelineEvent
+from data_models import Message, Scene, Action, TimelineHistory, TimelineEvent
 from config import Config
 from openrouter_client import GenerativeModel
 from helpers.response_parser import parse_json_response
@@ -78,7 +78,7 @@ class TimelineManager:
         Args:
             timeline: TimelineHistory instance to retrieve from
             n: Number of recent events
-            event_type: Optional filter - "message", "scene", or None for all
+            event_type: Optional filter - "message", "scene", "Action" or None for all
             
         Returns:
             List of recent events
@@ -90,6 +90,8 @@ class TimelineManager:
             events = [e for e in events if isinstance(e, Message)]
         elif event_type == "scene":
             events = [e for e in events if isinstance(e, Scene)]
+        elif event_type == "Action":
+            events = [e for e in events if isinstance(e, Action)]
         
         return events[-n:] if len(events) > n else events
     
@@ -241,6 +243,108 @@ class TimelineManager:
             
         except Exception as e:
             raise RuntimeError(f"Failed to generate scene event: {e}")
+        
+    # ========= Action Operations ==========
+
+    def create_action(
+        self,
+        character: str,
+        description: str
+    ) -> Action:
+        """
+        Create a new action instance.
+        Args:
+            character: Name of the character taking the action
+            description: Details about the action taken
+
+        Returns:
+            New Action instance
+        """
+        action = Action(
+            character=character,
+            description=description
+        )
+        return action
+    
+    def generate_action_event(
+        self,
+        character_name: str,
+        timeline: TimelineHistory,
+        recent_event_count: int = 10
+    ) -> Action:
+        """
+        Generate a silent character action (no dialogue) based on recent context.
+        Used when a character wants to react physically without speaking.
+        
+        Args:
+            character_name: Name of the character performing the action
+            timeline: TimelineHistory instance to consider
+            recent_event_count: How many recent events to consider for context
+
+        Returns:
+            New Action instance
+        """
+        recent_events = self.get_recent_events(timeline, n=recent_event_count)
+            
+        # Get current location from most recent scene
+        current_location = "Unknown Location"
+        for event in reversed(recent_events):
+            if isinstance(event, Scene):
+                current_location = event.location
+                break
+        
+        # Build chronological timeline context for LLM
+        timeline_context = []
+        for event in recent_events:
+            if isinstance(event, Message):
+                timeline_context.append(f"{event.speaker}: {event.content[:80]}")
+            elif isinstance(event, Scene):
+                timeline_context.append(f"[SCENE] {event.description}")
+            elif isinstance(event, Action):
+                timeline_context.append(f"[ACTION] {event.character}: {event.description}")
+        
+        timeline_str = "\n".join(timeline_context) if timeline_context else "No recent activity"
+        
+        prompt = f"""You are generating a SILENT CHARACTER ACTION for a roleplay story.
+        CURRENT SCENE:
+        - Location: {current_location}
+        - Character Acting: {character_name}
+        - Other Characters Present: {', '.join([p for p in timeline.participants if p != character_name])}
+        RECENT TIMELINE (in chronological order):
+        {timeline_str}
+        TASK:
+        Generate a physical action for {character_name} WITHOUT DIALOGUE. This is a silent, visible reaction to what's happening.
+        ACTION TYPES:
+        - **Emotional reaction**: steps back, leans forward, narrows eyes, clenches fist
+        - **Physical movement**: moves to window, picks up object, backs away, approaches
+        - **Gesture**: nods, shakes head, points, waves hand dismissively
+        - **Body language**: crosses arms, relaxes posture, tenses up, looks away
+        CRITICAL RULES:
+        - NO spoken words - only physical action
+        - Make it specific and revealing of character's state
+        - Should be a natural reaction to recent events
+        - Keep it concise (1-2 sentences max)
+        - Show emotion through body language
+        OUTPUT FORMAT (strict JSON):
+        {{
+            "action_description": "Brief description of the physical action"
+        }}
+        EXAMPLE:
+        {{
+            "action_description": "took a step back, eyes widening in sudden realization"
+        }}"""
+        
+        try:
+            response = self.model.generate_content(prompt, temperature=0.75)
+            result = parse_json_response(response.text)
+            action_desc = result.get("action_description", "").strip()
+            
+            return Action(
+                character=character_name,
+                description=action_desc
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate action event: {e}")
     
     # ========== Summary Operations ==========
     
@@ -264,6 +368,8 @@ class TimelineManager:
                 timeline_text.append(f"{event.speaker}: *{event.action_description}* {event.content}")
             elif isinstance(event, Scene):
                 timeline_text.append(f"[SCENE at {event.location}] {event.description}")
+            elif isinstance(event, Action):
+                timeline_text.append(f"[ACTION] {event.character}: *{event.description}*")
         
         timeline_str = "\n".join(timeline_text)
         

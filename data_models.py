@@ -40,6 +40,13 @@ class Scene(TimelineEvent):
     description: str = Field(..., description="What happens in this scene event")
 
 
+class Action(TimelineEvent):
+    """Represents a character's action or decision point."""
+    
+    character: str = Field(..., description="Name of the character taking the action")
+    description: str = Field(..., description="Details about the action taken")
+
+
 class TimelineHistory(BaseModel):
     """Represents the complete conversation history."""
 
