@@ -225,17 +225,27 @@ Respond with ONLY:
         
         # Analyze recent context using AI to avoid awkward timing
         if recent_messages and len(recent_messages) > 0:
-            # Get last few messages for context
-            context = "\n".join([f"{msg.speaker}: {msg.content}" for msg in recent_messages[-3:]])
+            # Build context including both Messages and Scenes in chronological order
+            from data_models import Message, Scene
+            context_lines = []
             
-            # Use OpenRouter to determine if timing is appropriate
-            try:
-                from config import Config
-                from openrouter_client import GenerativeModel
-                
-                model = GenerativeModel(Config.DEFAULT_MODEL)
-                
-                prompt = f"""Analyze this conversation context and determine if NOW is a good time for a dramatic story event to occur.
+            for event in recent_messages[-3:]:
+                if isinstance(event, Message):
+                    context_lines.append(f"{event.speaker}: {event.content}")
+                elif isinstance(event, Scene):
+                    context_lines.append(f"[SCENE at {event.location}]: {event.description}")
+            
+            if context_lines:
+                context = "\n".join(context_lines)
+            
+                # Use OpenRouter to determine if timing is appropriate
+                try:
+                    from config import Config
+                    from openrouter_client import GenerativeModel
+                    
+                    model = GenerativeModel(Config.DEFAULT_MODEL)
+                    
+                    prompt = f"""Analyze this conversation context and determine if NOW is a good time for a dramatic story event to occur.
 
 RECENT CONVERSATION:
 {context}
@@ -254,16 +264,16 @@ Consider:
 CRITICAL: If people are going to sleep, saying goodnight, or the conversation is ending, answer NO.
 
 Respond with ONLY 'YES' if timing is good for an event, or 'NO' if it would be awkward/inappropriate."""
-                
-                response = model.generate_content(prompt)
-                decision = response.text.strip().upper()
-                
-                if 'NO' in decision:
-                    return None  # Wait for better timing
-            except Exception as e:
-                # Fallback: if AI fails, be conservative and don't trigger
-                print(f"   ⚠️ Event timing check failed: {e}")
-                return None
+                    
+                    response = model.generate_content(prompt)
+                    decision = response.text.strip().upper()
+                    
+                    if 'NO' in decision:
+                        return None  # Wait for better timing
+                except Exception as e:
+                    # Fallback: if AI fails, be conservative and don't trigger
+                    print(f"   ⚠️ Event timing check failed: {e}")
+                    return None
         
         # Get available events
         available_events = self.get_available_events(current_count)

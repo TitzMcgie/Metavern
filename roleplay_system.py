@@ -139,7 +139,10 @@ class RoleplaySystem:
             
             # Restore events (messages and scenes)
             for event_data in data.get('events', []):
-                if 'speaker' in event_data:
+                # Check for explicit type field first (new format)
+                event_type = event_data.get('type')
+                
+                if event_type == 'message' or ('speaker' in event_data and 'content' in event_data):
                     # This is a Message
                     message = Message(
                         timeline_id=event_data.get('timeline_id'),
@@ -149,7 +152,7 @@ class RoleplaySystem:
                         action_description=event_data['action_description']
                     )
                     self.timeline.events.append(message)
-                elif 'location' in event_data:
+                elif event_type == 'scene' or ('location' in event_data and 'description' in event_data):
                     # This is a Scene
                     scene = Scene(
                         timeline_id=event_data.get('timeline_id'),
@@ -184,16 +187,47 @@ class RoleplaySystem:
         filepath = self.chat_storage_dir / filename
         
         try:
-            # Use Pydantic's model_dump (or dict for older versions) to serialize
-            timeline_data = self.timeline.model_dump(mode='json')
+            from data_models import Message, Scene
+            
+            # Manually construct the data structure to ensure proper serialization
+            timeline_data = {
+                "id": self.timeline.id,
+                "title": self.timeline.title,
+                "events": [],
+                "participants": self.timeline.participants,
+                "timeline_summary": self.timeline.timeline_summary,
+                "visible_to_user": self.timeline.visible_to_user
+            }
+            
+            # Serialize each event with all its fields
+            for event in self.timeline.events:
+                if isinstance(event, Message):
+                    event_data = {
+                        "type": "message",
+                        "timeline_id": event.timeline_id,
+                        "timestamp": event.timestamp.isoformat(),
+                        "speaker": event.speaker,
+                        "content": event.content,
+                        "action_description": event.action_description
+                    }
+                elif isinstance(event, Scene):
+                    event_data = {
+                        "type": "scene",
+                        "timeline_id": event.timeline_id,
+                        "timestamp": event.timestamp.isoformat(),
+                        "location": event.location,
+                        "description": event.description
+                    }
+                else:
+                    continue
+                
+                timeline_data["events"].append(event_data)
             
             with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(timeline_data, f, indent=2, ensure_ascii=False, default=str)
-        except AttributeError:
-            # Fallback for older Pydantic versions
-            timeline_data = self.timeline.dict()
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(timeline_data, f, indent=2, ensure_ascii=False, default=str)
+                json.dump(timeline_data, f, indent=2, ensure_ascii=False)
+                
+        except Exception as e:
+            print(f"⚠️  Error saving conversation: {e}")
     
     def _add_player_message(self, content: str) -> None:
         """Add a player message to the conversation."""

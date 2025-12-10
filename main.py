@@ -198,7 +198,7 @@ def main():
                     can_advance = False
                     if current_beat and events_in_beat >= current_beat.get("min_messages", 10):
                         from data_models import Message
-                        recent_events = system.timeline_manager.get_recent_events(system.timeline, count=15)
+                        recent_events = system.timeline_manager.get_recent_events(system.timeline, n=15)
                         recent_messages = [evt for evt in recent_events if isinstance(evt, Message)]
                         summary = " ".join([msg.content for msg in recent_messages])
                         if story_manager.check_beat_completion(summary):
