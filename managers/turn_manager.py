@@ -61,7 +61,7 @@ class TurnManager:
         self.turn_count = 0
         self.consecutive_silence_rounds = 0
     
-    def _collect_speaking_decisions(self) -> List[Tuple[Character, Tuple[str, bool, float, str, Optional[str], Optional[str]]]]:
+    def _collect_speaking_decisions(self) -> List[Tuple[Character, Tuple[str, float, str, Optional[str], Optional[str]]]]:
         """
         Collect response decisions from all AI characters.
         
@@ -75,7 +75,7 @@ class TurnManager:
         story_context = self.story_manager.get_story_context() if self.story_manager else None
         
         for character in self.characters:
-            response_type, wants_to_speak, priority, reasoning, action_desc, message = self.character_manager.decide_to_speak(
+            response_type, priority, reasoning, dialogue, action = self.character_manager.decide_turn_response(
                 character,
                 story_context=story_context
             )
@@ -86,7 +86,7 @@ class TurnManager:
                 continue
             
             if response_type in ["speak", "act"]:
-                decisions.append((character, (response_type, wants_to_speak, priority, reasoning, action_desc, message)))
+                decisions.append((character, (response_type, priority, reasoning, dialogue, action)))
                 emoji = "💭" if response_type == "speak" else "👤"
                 type_label = "Speech" if response_type == "speak" else "Action"
                 print(f"{emoji} {character.persona.name}: Priority {priority:.2f} ({type_label}) - {reasoning}")
@@ -101,7 +101,7 @@ class TurnManager:
     
     def _select_speaker_from_decisions(
         self, 
-        decisions: List[Tuple[Character, Tuple[str, bool, float, str, Optional[str], Optional[str]]]]
+        decisions: List[Tuple[Character, Tuple[str, float, str, Optional[str], Optional[str]]]]
     ) -> Optional[Tuple[Character, str, Optional[str], Optional[str]]]:
         """
         Select which character should respond (speak or act) based on priorities.
@@ -110,33 +110,36 @@ class TurnManager:
             decisions: List of (character, decision_tuple) tuples
             
         Returns:
-            Tuple of (character, response_type, action_description, message) or None if no valid responders
+            Tuple of (character, response_type, dialogue, action) for the selected character, or None
+            - For "speak": dialogue=spoken words, action=body language
+            - For "act": dialogue=None, action=physical action
         """
         if not decisions:
             return None
         
         # Sort by priority with small random factor for naturalness
         decisions_with_adjusted_priority = [
-            (char, decision_tuple, decision_tuple[2] + random.uniform(-self.priority_randomness, self.priority_randomness))
+            (char, decision_tuple, decision_tuple[1] + random.uniform(-self.priority_randomness, self.priority_randomness))
             for char, decision_tuple in decisions
         ]
         
         decisions_with_adjusted_priority.sort(key=lambda x: x[2], reverse=True)
         
-        # Return the highest priority character with their response type, action and message
+        # Return the highest priority character with their response type and content
         selected_character, decision_tuple, _ = decisions_with_adjusted_priority[0]
         response_type = decision_tuple[0]
-        action_desc = decision_tuple[4]  
-        message = decision_tuple[5]  
-        return (selected_character, response_type, action_desc, message)
+        dialogue = decision_tuple[3]  # spoken words (for speak) or None (for act)
+        action = decision_tuple[4]  # body_language (for speak) or physical action (for act)
+        return (selected_character, response_type, dialogue, action)
     
     def select_next_speaker(self) -> Optional[Tuple[Character, str, Optional[str], Optional[str]]]:
         """
         Select which AI character should respond next (speak or act).
         
         Returns:
-            Tuple of (character, response_type, action_description, message) for the selected character, or None
-            Tuple of (character, action_description, message) for the selected speaker, or None
+            Tuple of (character, response_type, dialogue, action) for the selected character, or None
+            - For "speak": dialogue=spoken words, action=body language
+            - For "act": dialogue=physical action, action=None
         """
         # Check if there are any events in the timeline
         recent_events = self.timeline_manager.get_recent_events(timeline=self.timeline)
@@ -215,42 +218,56 @@ class TurnManager:
             # Reset silence counter when someone responds
             self.consecutive_silence_rounds = 0
             
-            character, response_type, action_desc, message = result
+            character, response_type, dialogue, action = result
             
             # Prevent the same character from responding twice in a row
             if last_speaker == character.persona.name:
                 print(f"   ⏭️  {character.persona.name} already responded, giving others a chance...")
-                break
+                continue  # Continue to next iteration instead of breaking, let other characters respond
+            
+            # Validate that we have content before processing
+            if response_type == "speak" and not dialogue:
+                print(f"   ⚠️  {character.persona.name} chose to speak but provided no dialogue, skipping...")
+                continue
+            elif response_type == "act" and not action:
+                print(f"   ⚠️  {character.persona.name} chose to act but provided no action, skipping...")
+                continue
             
             # Handle different response types
             if response_type == "speak":
+                # For speak: dialogue = spoken words, action = body language
+                body_language = action
+                
                 # Create and add the message to the timeline
                 message_obj = self.timeline_manager.create_message(
                     speaker=character.persona.name,
-                    content=message,
-                    action_description=action_desc or "speaks"
+                    content=dialogue,
+                    action_description=body_language or "speaks"
                 )
                 self.timeline_manager.add_event(self.timeline, message_obj)
                 
                 # Broadcast this TimelineEvent to all characters
                 self.character_manager.broadcast_event_to_characters(self.characters, message_obj)
                 
-                # Print with action description in cyan color if available
+                # Print with body language in cyan color if available
                 print(f"\n💬 {character.persona.name}:", end="")
-                if action_desc:
-                    print(f" {Fore.CYAN}*{action_desc}*{Style.RESET_ALL}")
-                    print(f"   \"{message}\"")
+                if body_language:
+                    print(f" {Fore.CYAN}*{body_language}*{Style.RESET_ALL}")
+                    print(f"   \"{dialogue}\"")
                 else:
-                    print(f" {message}")
+                    print(f" {dialogue}")
                 
-                responses.append((character, message))
+                responses.append((character, dialogue))
                 
             elif response_type == "act":
+                # For act: dialogue is None, action contains the physical action
+                physical_action = action
+                
                 # Create and add the action to the timeline
                 from data_models import Action
                 action_obj = self.timeline_manager.create_action(
                     character=character.persona.name,
-                    description=action_desc or "reacts silently"
+                    description=physical_action
                 )
                 self.timeline_manager.add_event(self.timeline, action_obj)
                 
@@ -258,9 +275,9 @@ class TurnManager:
                 self.character_manager.broadcast_event_to_characters(self.characters, action_obj)
                 
                 # Print action without dialogue
-                print(f"\n👤 {character.persona.name}: {Fore.CYAN}*{action_desc}*{Style.RESET_ALL}")
+                print(f"\n👤 {character.persona.name}: {Fore.CYAN}*{physical_action}*{Style.RESET_ALL}")
                 
-                responses.append((character, f"[ACTION: {action_desc}]"))
+                responses.append((character, f"[ACTION: {physical_action}]"))
             
             last_speaker = character.persona.name
             consecutive_count += 1

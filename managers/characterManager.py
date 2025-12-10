@@ -239,19 +239,35 @@ class CharacterManager:
         - **CHECK WHAT OTHERS SAID**: Look at the last 2-3 messages. If they already covered your concern, you don't need to repeat it
 
         OUTPUT FORMAT (strict JSON):
+        
+        For "speak" type:
         {{
-        "response_type": "speak" or "act" or "silent",
-        "wants_to_speak": true or false (true if response_type is "speak", false otherwise),
+        "type": "speak",
         "priority": 0.0 to 1.0 (how urgent/important is your response),
         "reasoning": "brief explanation of your decision",
-        "action_description": "physical actions/body language - REQUIRED for 'act' type, optional for 'speak' type",
-        "message": "your actual dialogue if response_type is 'speak', otherwise null"
+        "dialogue": "your actual spoken words here(25-70 words)",
+        "action": "physical actions/body language accompanying speech. For example: 'smiles warmly', 'leans forward eagerly', 'frowns slightly', etc. in 15-20 words"
+        }}
+        
+        For "act" type:
+        {{
+        "type": "act",
+        "priority": 0.0 to 1.0,
+        "reasoning": "brief explanation of your decision",
+        "action": "silent physical action/reaction without speaking. For example 'crosses arms and looks away', 'paces to the window nervously', 'sits down heavily with a sigh', etc. in 15-20 words"
+        }}
+        
+        For "silent" type:
+        {{
+        "type": "silent",
+        "priority": 0.0,
+        "reasoning": "brief explanation why you're staying quiet"
         }}
 
         IMPORTANT:
-        - For "speak": Include BOTH action_description AND message
-        - For "act": Only action_description (silent physical reaction), message should be null
-        - For "silent": Both action_description and message should be null
+        - For "speak": Include dialogue (required) and action 
+        - For "act": Only include action (no dialogue)
+        - For "silent": Only type, priority, and reasoning
 
         **CRITICAL - ACTION VARIETY RULES (READ THIS CAREFULLY):**
         1. **CHECK THE CONVERSATION ABOVE** - Look at your previous messages. What actions did you ALREADY do?
@@ -267,7 +283,7 @@ class CharacterManager:
         - Stay COMPLETELY IN CHARACTER with your unique speaking style
         - Don't repeat what others just said - add something NEW or DON'T SPEAK
         - Keep messages realistic for casual conversation
-        - If you have nothing unique to add, set wants_to_speak to false
+        - If you have nothing unique to add, choose "silent" type
         - Your personality should be OBVIOUS from how you speak and act
         - Don't sound like you're giving a lecture or writing an essay
         - Use natural dialogue, contractions, and emotion
@@ -280,11 +296,11 @@ class CharacterManager:
         """
         return prompt
     
-    def decide_to_speak(
+    def decide_turn_response(
         self, 
         character: Character,
         story_context: Optional[str] = None
-    ) -> Tuple[str, bool, float, str, Optional[str], Optional[str]]:
+    ) -> Tuple[str, float, str, Optional[str], Optional[str]]:
         """
         Decide whether this character should speak, act silently, or stay silent.
         Each character uses different generation settings for unique voices.
@@ -294,13 +310,12 @@ class CharacterManager:
             story_context: Optional story context to guide responses
             
         Returns:
-            Tuple of (response_type, wants_to_speak, priority, reasoning, action_description, message)
+            Tuple of (response_type, priority, reasoning, content1, content2)
             - response_type: "speak", "act", or "silent"
-            - wants_to_speak: True if response_type is "speak", False otherwise
             - priority: 0.0 to 1.0
             - reasoning: Explanation of decision
-            - action_description: Physical action (required for "act", optional for "speak")
-            - message: Dialogue (only for "speak", None otherwise)
+            - content1: For "speak" = dialogue, For "act" = action, For "silent" = None
+            - content2: For "speak" = body_language (optional), For "act"/"silent" = None
         """
         
         try:
@@ -318,16 +333,27 @@ class CharacterManager:
             # Parse JSON response
             decision_data = parse_json_response(response.text)
             
-            response_type = decision_data.get("response_type", "silent").lower()
-            wants_to_speak = response_type == "speak"
+            response_type = decision_data.get("type", "silent").lower()
+            priority = decision_data.get("priority", 0.0)
+            reasoning = decision_data.get("reasoning", "No reasoning provided")
+            
+            # Extract content based on response type
+            if response_type == "speak":
+                dialogue = decision_data.get("dialogue", None) 
+                action = decision_data.get("action", None)  
+            elif response_type == "act":
+                dialogue = None  # No dialogue for silent action
+                action = decision_data.get("action", None)  
+            else:  # silent
+                dialogue = None
+                action = None
             
             return (
                 response_type,
-                wants_to_speak,
-                decision_data.get("priority", 0.0),
-                decision_data.get("reasoning", "No reasoning provided"),
-                decision_data.get("action_description", None),
-                decision_data.get("message", None)
+                priority,
+                reasoning,
+                dialogue,
+                action
             )
             
         except json.JSONDecodeError as e:
