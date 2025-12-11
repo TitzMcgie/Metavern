@@ -64,6 +64,26 @@ class TimelineManager:
         if isinstance(event, Message):
             if event.character not in timeline.participants:
                 timeline.participants.append(event.character)
+            if event.character not in timeline.current_participants:
+                timeline.current_participants.append(event.character)
+
+        elif isinstance(event, Action):
+            if event.character not in timeline.participants:
+                timeline.participants.append(event.character)
+            if event.character not in timeline.current_participants:
+                timeline.current_participants.append(event.character)
+        
+        elif isinstance(event, CharacterEntry):
+            if event.character not in timeline.participants:
+                timeline.participants.append(event.character)
+            if event.character not in timeline.current_participants:
+                timeline.current_participants.append(event.character)
+        
+        elif isinstance(event, CharacterExit):
+            if event.character not in timeline.participants:
+                timeline.participants.append(event.character)
+            if event.character in timeline.current_participants:
+                timeline.current_participants.remove(event.character)
 
     
     def get_recent_events(
@@ -78,7 +98,7 @@ class TimelineManager:
         Args:
             timeline: TimelineHistory instance to retrieve from
             n: Number of recent events
-            event_type: Optional filter - "message", "scene", "Action" or None for all
+            event_type: Optional filter - "message", "scene", "action", "entry", "exit" or None for all
             
         Returns:
             List of recent events
@@ -90,8 +110,12 @@ class TimelineManager:
             events = [e for e in events if isinstance(e, Message)]
         elif event_type == "scene":
             events = [e for e in events if isinstance(e, Scene)]
-        elif event_type == "Action":
+        elif event_type == "action":
             events = [e for e in events if isinstance(e, Action)]
+        elif event_type == "entry":
+            events = [e for e in events if isinstance(e, CharacterEntry)]
+        elif event_type == "exit":
+            events = [e for e in events if isinstance(e, CharacterExit)]
         
         return events[-n:] if len(events) > n else events
     
@@ -436,6 +460,422 @@ class TimelineManager:
             )
         except Exception as e:
             raise RuntimeError(f"Failed to generate action event: {e}")
+        
+    # ========== Charracter Entry/Exit Operations ==========
+
+    def create_character_entry(
+        self,
+        character: str,
+        description: str
+    ) -> CharacterEntry:
+        """
+        Create a new character entry event.
+        
+        Args:
+            character: Name of the character entering
+            description: Description of how the character enters
+            
+        Returns:
+            New CharacterEntry instance
+        """
+        entry = CharacterEntry(
+            character=character,
+            description=description
+        )
+        return entry
+    
+    def create_character_exit(
+        self,
+        character: str,
+        description: str
+    ) -> CharacterExit:
+        """
+        Create a new character exit event.
+        
+        Args:
+            character: Name of the character leaving
+            description: Description of how the character leaves
+            
+        Returns:
+            New CharacterExit instance
+        """
+        exit_event = CharacterExit(
+            character=character,
+            description=description
+        )
+        return exit_event
+    
+    def generate_character_entry_event(
+        self,
+        character_name: str,
+        timeline: TimelineHistory,
+        recent_event_count: int = 10
+    ) -> CharacterEntry:
+        """
+        Generate a character entry event based on recent context.
+        
+        Args:
+            character_name: Name of the character entering
+            timeline: TimelineHistory instance to consider
+            recent_event_count: How many recent events to consider for context
+            
+        Returns:
+            New CharacterEntry instance
+        """
+        recent_events = self.get_recent_events(timeline, n=recent_event_count)
+        
+        # Build chronological timeline context for LLM
+        timeline_context = []
+        for event in recent_events:
+            if isinstance(event, Message):
+                timeline_context.append(f"{event.character}: {event.dialouge[:80]}")
+            elif isinstance(event, Scene):
+                timeline_context.append(f"[SCENE at {event.location}] {event.description}")
+            elif isinstance(event, Action):
+                timeline_context.append(f"[ACTION] {event.character}: {event.description}")
+            elif isinstance(event, CharacterEntry):
+                timeline_context.append(f"[ENTERED] {event.character}: {event.description}")
+            elif isinstance(event, CharacterExit):
+                timeline_context.append(f"[LEFT] {event.character}: {event.description}")
+        
+        timeline_str = "\n".join(timeline_context) if timeline_context else "No recent activity"
+        current_location = self.get_current_location(timeline)
+        
+        prompt = f"""You are generating a CHARACTER ENTRY EVENT for {character_name} in a roleplay story.
+        - Characters Currently Present: {', '.join(timeline.current_participants)}
+        - Current Location: {current_location or "Unknown location"}
+
+        RECENT TIMELINE (in chronological order):
+        {timeline_str}
+
+        SITUATION:
+        {character_name} is about to enter the scene. Generate a vivid description of their entrance.
+
+        ENTRY TYPES (choose based on context and character personality):
+        - **Casual**: walks in, strolls over, steps through doorway
+        - **Dramatic**: bursts in, sweeps into the room, appears suddenly
+        - **Cautious**: peers around corner, enters hesitantly, slips in quietly
+        - **Urgent**: rushes in, hurries through, comes running
+        - **Mysterious**: materializes, emerges from shadows, appears without warning
+
+        CRITICAL RULES:
+        - Make it SPECIFIC and character-appropriate
+        - Include sensory details (what others see/hear)
+        - Should reflect the current mood/tension in timeline
+        - Keep it concise (1-2 sentences)
+        - Consider the location when describing entrance
+
+        OUTPUT FORMAT (strict JSON):
+        {{
+            "entry_description": "Brief vivid description of how {character_name} enters"
+        }}
+
+        EXAMPLE:
+        {{
+            "entry_description": "pushed open the heavy oak door and stepped into the library, her footsteps echoing softly as she glanced around with curious eyes"
+        }}"""
+        
+        try:
+            response = self.model.generate_content(prompt, temperature=0.75)
+            result = parse_json_response(response.text)
+            entry_desc = result.get("entry_description", "").strip()
+            
+            return CharacterEntry(
+                character=character_name,
+                description=entry_desc
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate character entry event: {e}")
+    
+    def generate_character_exit_event(
+        self,
+        character_name: str,
+        timeline: TimelineHistory,
+        recent_event_count: int = 10
+    ) -> CharacterExit:
+        """
+        Generate a character exit event based on recent context.
+        
+        Args:
+            character_name: Name of the character leaving
+            timeline: TimelineHistory instance to consider
+            recent_event_count: How many recent events to consider for context
+            
+        Returns:
+            New CharacterExit instance
+        """
+        recent_events = self.get_recent_events(timeline, n=recent_event_count)
+        
+        # Build chronological timeline context for LLM
+        timeline_context = []
+        for event in recent_events:
+            if isinstance(event, Message):
+                timeline_context.append(f"{event.character}: {event.dialouge[:80]}")
+            elif isinstance(event, Scene):
+                timeline_context.append(f"[SCENE at {event.location}] {event.description}")
+            elif isinstance(event, Action):
+                timeline_context.append(f"[ACTION] {event.character}: {event.description}")
+            elif isinstance(event, CharacterEntry):
+                timeline_context.append(f"[ENTERED] {event.character}: {event.description}")
+            elif isinstance(event, CharacterExit):
+                timeline_context.append(f"[LEFT] {event.character}: {event.description}")
+        
+        timeline_str = "\n".join(timeline_context) if timeline_context else "No recent activity"
+        current_location = self.get_current_location(timeline)
+        
+        prompt = f"""You are generating a CHARACTER EXIT EVENT for {character_name} in a roleplay story.
+        - Characters Currently Present: {', '.join([p for p in timeline.current_participants if p != character_name])}
+        - Current Location: {current_location or "Unknown location"}
+
+        RECENT TIMELINE (in chronological order):
+        {timeline_str}
+
+        SITUATION:
+        {character_name} is about to leave the scene. Generate a vivid description of their exit.
+
+        EXIT TYPES (choose based on context and character personality):
+        - **Casual**: walks out, heads for the door, leaves quietly
+        - **Dramatic**: storms out, sweeps from the room, departs abruptly
+        - **Reluctant**: hesitates then leaves, backs away slowly, exits with a glance back
+        - **Urgent**: hurries out, rushes away, bolts from the room
+        - **Mysterious**: fades away, disappears into shadows, vanishes quietly
+
+        CRITICAL RULES:
+        - Make it SPECIFIC and character-appropriate
+        - Include sensory details (what others see/hear)
+        - Should reflect the current mood/tension in timeline
+        - Keep it concise (1-2 sentences)
+        - Consider the location and recent events when describing exit
+
+        OUTPUT FORMAT (strict JSON):
+        {{
+            "exit_description": "Brief vivid description of how {character_name} leaves"
+        }}
+
+        EXAMPLE:
+        {{
+            "exit_description": "gathered her books with a resigned sigh and headed for the door, footsteps fading down the corridor"
+        }}"""
+        
+        try:
+            response = self.model.generate_content(prompt, temperature=0.75)
+            result = parse_json_response(response.text)
+            exit_desc = result.get("exit_description", "").strip()
+            
+            return CharacterExit(
+                character=character_name,
+                description=exit_desc
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate character exit event: {e}")
+    
+    def should_generate_character_entry(
+        self,
+        character_name: str,
+        timeline: TimelineHistory,
+        recent_event_count: int = 15
+    ) -> Optional[dict]:
+        """
+        Use LLM to decide if a character entry event should be generated.
+        
+        Args:
+            character_name: Name of the character considering entry
+            timeline: TimelineHistory instance
+            recent_event_count: Number of recent events to include in context
+            
+        Returns:
+            dict with 'entry_generated' (bool) and 'entry_description' (str) if entry should happen,
+            None if character should not enter
+        """
+        recent_events = self.get_recent_events(timeline, n=recent_event_count)
+        
+        # Build chronological timeline context for LLM
+        timeline_context = []
+        for event in recent_events:
+            if isinstance(event, Message):
+                timeline_context.append(f"{event.character}: {event.dialouge[:80]}")
+            elif isinstance(event, Scene):
+                timeline_context.append(f"[SCENE at {event.location}] {event.description}")
+            elif isinstance(event, Action):
+                timeline_context.append(f"[ACTION] {event.character}: {event.description}")
+            elif isinstance(event, CharacterEntry):
+                timeline_context.append(f"[ENTERED] {event.character}: {event.description}")
+            elif isinstance(event, CharacterExit):
+                timeline_context.append(f"[LEFT] {event.character}: {event.description}")
+        
+        timeline_str = "\n".join(timeline_context) if timeline_context else "No recent activity"
+        current_location = self.get_current_location(timeline)
+        
+        prompt = f"""You are a narrative AI assistant for a roleplay story.
+        Character in Question: {character_name}
+        Characters Currently Present: {', '.join(timeline.current_participants)}
+        Current Location: {current_location or "Unknown location"}
+        
+        RECENT TIMELINE (in chronological order):
+        {timeline_str}
+
+        YOUR TASK:
+        Decide if {character_name} should ENTER the scene right now.
+
+        GENERATE A CHARACTER ENTRY IF:
+        1. **Natural story moment** - {character_name} would realistically arrive now
+        2. **Story enhancement** - Their entrance would add interest or push plot forward
+        3. **Character motivation** - They have a reason to be at this location now
+        4. **Good timing** - Not interrupting a critical emotional moment
+        5. **Location makes sense** - {character_name} would plausibly be near {current_location or "this location"}
+
+        DO NOT GENERATE ENTRY IF:
+        1. **Already present** - {character_name} is already in current_participants
+        2. **Recently left** - They just exited in the last few events
+        3. **Bad timing** - Would interrupt important dialogue or emotional beat
+        4. **No story reason** - Random entrance with no narrative purpose
+        5. **Location illogical** - Character wouldn't realistically be here
+
+        IF YOU DECIDE {character_name} SHOULD ENTER:
+        Create a VIVID ENTRANCE that:
+        - Fits their personality and the current situation
+        - Is SPECIFIC with sensory details
+        - Reflects the current mood/tension
+        - Gives other characters something to react to
+
+        OUTPUT FORMAT (strict JSON):
+        If character should enter:
+        {{
+            "entry_generated": true,
+            "entry_description": "1-2 sentence vivid description of how {character_name} enters"
+        }}
+
+        If character should NOT enter:
+        {{
+            "entry_generated": false
+        }}
+
+        Decide now based on the timeline and story context above."""
+        
+        try:
+            response = self.model.generate_content(
+                prompt,
+                temperature=0.8,
+                max_tokens=300
+            )
+            
+            entry_data = parse_json_response(response.text)
+            
+            if entry_data.get("entry_generated", False):
+                return {
+                    'entry_generated': True,
+                    'entry_description': entry_data.get('entry_description')
+                }
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"⚠️  Error in character entry decision: {e}")
+            return None
+    
+    def should_generate_character_exit(
+        self,
+        character_name: str,
+        timeline: TimelineHistory,
+        recent_event_count: int = 15
+    ) -> Optional[dict]:
+        """
+        Use LLM to decide if a character exit event should be generated.
+        
+        Args:
+            character_name: Name of the character considering exit
+            timeline: TimelineHistory instance
+            recent_event_count: Number of recent events to include in context
+            
+        Returns:
+            dict with 'exit_generated' (bool) and 'exit_description' (str) if exit should happen,
+            None if character should stay
+        """
+        recent_events = self.get_recent_events(timeline, n=recent_event_count)
+        
+        # Build chronological timeline context for LLM
+        timeline_context = []
+        for event in recent_events:
+            if isinstance(event, Message):
+                timeline_context.append(f"{event.character}: {event.dialouge[:80]}")
+            elif isinstance(event, Scene):
+                timeline_context.append(f"[SCENE at {event.location}] {event.description}")
+            elif isinstance(event, Action):
+                timeline_context.append(f"[ACTION] {event.character}: {event.description}")
+            elif isinstance(event, CharacterEntry):
+                timeline_context.append(f"[ENTERED] {event.character}: {event.description}")
+            elif isinstance(event, CharacterExit):
+                timeline_context.append(f"[LEFT] {event.character}: {event.description}")
+        
+        timeline_str = "\n".join(timeline_context) if timeline_context else "No recent activity"
+        current_location = self.get_current_location(timeline)
+        
+        prompt = f"""You are a narrative AI assistant for a roleplay story.
+        Character in Question: {character_name}
+        Characters Currently Present: {', '.join(timeline.current_participants)}
+        Current Location: {current_location or "Unknown location"}
+        
+        RECENT TIMELINE (in chronological order):
+        {timeline_str}
+
+        YOUR TASK:
+        Decide if {character_name} should LEAVE the scene right now.
+
+        GENERATE A CHARACTER EXIT IF:
+        1. **Natural departure point** - Conversation concluded, business finished
+        2. **Character motivation** - {character_name} has a reason to leave (uncomfortable, bored, urgent business elsewhere)
+        3. **Story enhancement** - Their exit would create dramatic effect or enable new dynamics
+        4. **Been present long enough** - They've participated sufficiently
+        5. **Organic timing** - Natural break in conversation or after their turn
+
+        DO NOT GENERATE EXIT IF:
+        1. **Not currently present** - {character_name} is not in current_participants
+        2. **Mid-conversation** - Actively engaged in important dialogue
+        3. **Just arrived** - Recently entered in the last few events
+        4. **Story needs them** - Critical moment where their presence is essential
+        5. **Awkward timing** - Would seem forced or unnatural
+
+        IF YOU DECIDE {character_name} SHOULD LEAVE:
+        Create a VIVID EXIT that:
+        - Fits their personality and current emotional state
+        - Is SPECIFIC with sensory details
+        - Reflects the reason for leaving (casual, urgent, dramatic, reluctant)
+        - Gives other characters something to react to
+
+        OUTPUT FORMAT (strict JSON):
+        If character should exit:
+        {{
+            "exit_generated": true,
+            "exit_description": "1-2 sentence vivid description of how {character_name} leaves"
+        }}
+
+        If character should NOT exit:
+        {{
+            "exit_generated": false
+        }}
+
+        Decide now based on the timeline and story context above."""
+        
+        try:
+            response = self.model.generate_content(
+                prompt,
+                temperature=0.8,
+                max_tokens=300
+            )
+            
+            exit_data = parse_json_response(response.text)
+            
+            if exit_data.get("exit_generated", False):
+                return {
+                    'exit_generated': True,
+                    'exit_description': exit_data.get('exit_description')
+                }
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"⚠️  Error in character exit decision: {e}")
+            return None
     
     # ========== Summary Operations ==========
     

@@ -80,6 +80,10 @@ class TimelineHistory(BaseModel):
         default_factory=list,
         description="List of characters involved in this conversation"
     )
+    current_participants: List[str] = Field(
+        default_factory=list,
+        description="List of characters currently present in the conversation"
+    )
     timeline_summary: Optional[str] = Field(
         default=None,
         description="Brief automatically generated summary of the timeline"
