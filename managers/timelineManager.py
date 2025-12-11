@@ -496,7 +496,7 @@ class TimelineManager:
     
     def generate_character_entry_event(
         self,
-        character_name: str,
+        character: str,
         timeline: TimelineHistory,
         recent_event_count: int = 10
     ) -> CharacterEntry:
@@ -514,7 +514,7 @@ class TimelineManager:
         timeline_str = self.get_timeline_context(timeline, recent_event_count=recent_event_count)
         current_location = self.get_current_location(timeline)
         
-        prompt = f"""You are generating a CHARACTER ENTRY EVENT for {character_name} in a roleplay story.
+        prompt = f"""You are generating a CHARACTER ENTRY EVENT for {character} in a roleplay story.
         - Characters Currently Present: {', '.join(timeline.current_participants)}
         - Current Location: {current_location or "Unknown location"}
 
@@ -522,7 +522,7 @@ class TimelineManager:
         {timeline_str}
 
         SITUATION:
-        {character_name} is about to enter the scene. Generate a vivid description of their entrance.
+        {character} is about to enter the scene. Generate a vivid description of their entrance.
 
         ENTRY TYPES (choose based on context and character personality):
         - **Casual**: walks in, strolls over, steps through doorway
@@ -540,7 +540,7 @@ class TimelineManager:
 
         OUTPUT FORMAT (strict JSON):
         {{
-            "entry_description": "Brief vivid description of how {character_name} enters"
+            "entry_description": "Brief vivid description of how {character} enters"
         }}
 
         EXAMPLE:
@@ -554,7 +554,7 @@ class TimelineManager:
             entry_desc = result.get("entry_description", "").strip()
             
             return CharacterEntry(
-                character=character_name,
+                character=character,
                 description=entry_desc
             )
         except Exception as e:
@@ -562,7 +562,7 @@ class TimelineManager:
     
     def generate_character_exit_event(
         self,
-        character_name: str,
+        character: str,
         timeline: TimelineHistory,
         recent_event_count: int = 10
     ) -> CharacterExit:
@@ -580,15 +580,15 @@ class TimelineManager:
         timeline_str = self.get_timeline_context(timeline, recent_event_count=recent_event_count)
         current_location = self.get_current_location(timeline)
         
-        prompt = f"""You are generating a CHARACTER EXIT EVENT for {character_name} in a roleplay story.
-        - Characters Currently Present: {', '.join([p for p in timeline.current_participants if p != character_name])}
+        prompt = f"""You are generating a CHARACTER EXIT EVENT for {character} in a roleplay story.
+        - Characters Currently Present: {', '.join([p for p in timeline.current_participants if p != character])}
         - Current Location: {current_location or "Unknown location"}
 
         RECENT TIMELINE (in chronological order):
         {timeline_str}
 
         SITUATION:
-        {character_name} is about to leave the scene. Generate a vivid description of their exit.
+        {character} is about to leave the scene. Generate a vivid description of their exit.
 
         EXIT TYPES (choose based on context and character personality):
         - **Casual**: walks out, heads for the door, leaves quietly
@@ -606,7 +606,7 @@ class TimelineManager:
 
         OUTPUT FORMAT (strict JSON):
         {{
-            "exit_description": "Brief vivid description of how {character_name} leaves"
+            "exit_description": "Brief vivid description of how {character} leaves"
         }}
 
         EXAMPLE:
@@ -620,7 +620,7 @@ class TimelineManager:
             exit_desc = result.get("exit_description", "").strip()
             
             return CharacterExit(
-                character=character_name,
+                character=character,
                 description=exit_desc
             )
         except Exception as e:
@@ -716,7 +716,7 @@ class TimelineManager:
     
     def should_generate_character_exit(
         self,
-        character_name: str,
+        character: str,
         timeline: TimelineHistory,
         recent_event_count: int = 15
     ) -> Optional[dict]:
@@ -736,7 +736,7 @@ class TimelineManager:
         current_location = self.get_current_location(timeline)
         
         prompt = f"""You are a narrative AI assistant for a roleplay story.
-        Character in Question: {character_name}
+        Character in Question: {character}
         Characters Currently Present: {', '.join(timeline.current_participants)}
         Current Location: {current_location or "Unknown location"}
         
@@ -744,23 +744,23 @@ class TimelineManager:
         {timeline_str}
 
         YOUR TASK:
-        Decide if {character_name} should LEAVE the scene right now.
+        Decide if {character} should LEAVE the scene right now.
 
         GENERATE A CHARACTER EXIT IF:
         1. **Natural departure point** - Conversation concluded, business finished
-        2. **Character motivation** - {character_name} has a reason to leave (uncomfortable, bored, urgent business elsewhere)
+        2. **Character motivation** - {character} has a reason to leave (uncomfortable, bored, urgent business elsewhere)
         3. **Story enhancement** - Their exit would create dramatic effect or enable new dynamics
         4. **Been present long enough** - They've participated sufficiently
         5. **Organic timing** - Natural break in conversation or after their turn
 
         DO NOT GENERATE EXIT IF:
-        1. **Not currently present** - {character_name} is not in current_participants
+        1. **Not currently present** - {character} is not in current_participants
         2. **Mid-conversation** - Actively engaged in important dialogue
         3. **Just arrived** - Recently entered in the last few events
         4. **Story needs them** - Critical moment where their presence is essential
         5. **Awkward timing** - Would seem forced or unnatural
 
-        IF YOU DECIDE {character_name} SHOULD LEAVE:
+        IF YOU DECIDE {character} SHOULD LEAVE:
         Create a VIVID EXIT that:
         - Fits their personality and current emotional state
         - Is SPECIFIC with sensory details
@@ -771,7 +771,7 @@ class TimelineManager:
         If character should exit:
         {{
             "exit_generated": true,
-            "exit_description": "1-2 sentence vivid description of how {character_name} leaves"
+            "exit_description": "1-2 sentence vivid description of how {character} leaves"
         }}
 
         If character should NOT exit:
@@ -819,15 +819,8 @@ class TimelineManager:
         
         timeline_str = self.get_timeline_context(timeline, recent_event_count=None)
         
-        # Build context
-        context_parts = []
-        if timeline.title:
-            context_parts.append(f"Title: {timeline.title}")
-        
-        context_str = "\n".join(context_parts) if context_parts else ""
-        
         prompt = f"""You are summarizing a roleplay timeline between characters.
-        {context_str}
+        Title: {timeline.title}
         TIMELINE:
         {timeline_str}
         TASK: Generate a concise summary (2-4 sentences) of this timeline covering:
