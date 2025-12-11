@@ -198,8 +198,9 @@ def main():
                                 description=f"[{event['title']}] {event['description']}"
                             )
                             system.timeline_manager.add_event(system.timeline, scene)
-                            # Broadcast to all characters
-                            system.character_manager.broadcast_event_to_characters(system.ai_characters, scene)
+                            # Broadcast to currently active characters only
+                            active_characters = [c for c in system.ai_characters if c.persona.name in system.timeline.current_participants]
+                            system.character_manager.broadcast_event_to_characters(active_characters, scene)
                     
                     # Check if we can advance story
                     can_advance = False

@@ -43,6 +43,7 @@ class TimelineManager:
         return TimelineHistory(
             title=title,
             participants=participants,
+            current_participants=participants.copy() if participants else None, 
             visible_to_user=visible_to_user
         )
     

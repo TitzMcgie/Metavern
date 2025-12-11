@@ -194,8 +194,20 @@ class RoleplaySystem:
                     self.timeline.events.append(exit_event)
             
             # Broadcast all events to characters so they have the full context
+            # Replay timeline to track who was present at each point
+            present_at_moment = set(self.timeline.participants)  # Start with all initial participants
+            
             for event in self.timeline.events:
-                self.character_manager.broadcast_event_to_characters(self.ai_characters, event)
+                # Broadcast to whoever was present at this moment
+                active_characters = [c for c in self.ai_characters if c.persona.name in present_at_moment]
+                self.character_manager.broadcast_event_to_characters(active_characters, event)
+                
+                # Update presence based on Entry/Exit events
+                from data_models import CharacterEntry, CharacterExit
+                if isinstance(event, CharacterEntry):
+                    present_at_moment.add(event.character)
+                elif isinstance(event, CharacterExit):
+                    present_at_moment.discard(event.character)
             
             print("\n" + "="*70)
             print("📂 LOADED EXISTING CONVERSATION")
@@ -312,8 +324,9 @@ class RoleplaySystem:
         )
         self.timeline_manager.add_event(self.timeline, message)
         
-        # Broadcast player message as a TimelineEvent to all characters
-        self.character_manager.broadcast_event_to_characters(self.ai_characters, message)
+        # Broadcast player message as a TimelineEvent to currently active characters only
+        active_characters = [c for c in self.ai_characters if c.persona.name in self.timeline.current_participants]
+        self.character_manager.broadcast_event_to_characters(active_characters, message)
         self._save_conversation()
     
     def get_conversation_file_path(self) -> Path:

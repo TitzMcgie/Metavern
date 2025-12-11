@@ -134,7 +134,7 @@ class CharacterMemory(BaseModel):
 
     name: str = Field(..., description="Name of the character this memory belongs to")
 
-    timeline_memory: List[TimelineEvent] = Field(
+    event: List[TimelineEvent] = Field(
         default_factory=list,
         description="Scenes and Messages this character observed from its perspective"
     )

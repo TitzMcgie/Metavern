@@ -46,18 +46,18 @@ class CharacterManager:
     def update_character_memory(
         self,
         character: Character,
-        timeline_memory: TimelineEvent
+        event: TimelineEvent
     ) -> None:
         """
         Update character's memory by adding timeline event.
         
         Args:
             character: The Character to update
-            timeline_memory: The TimelineEvent to add to memory
+            event: The TimelineEvent to add to memory
         """
             
-        if timeline_memory is not None:
-            character.memory.timeline_memory.append(timeline_memory)
+        if event is not None:
+            character.memory.event.append(event)
     
     def update_character_state(
         self,
@@ -141,8 +141,8 @@ class CharacterManager:
             Formatted memory context string
         """
         context_lines = []
-        if character.memory and character.memory.timeline_memory:
-            events = character.memory.timeline_memory
+        if character.memory and character.memory.event:
+            events = character.memory.event
             if last_n_messages is not None:
                 events = events[-last_n_messages:]
             
@@ -381,4 +381,4 @@ class CharacterManager:
             event: The event being broadcasted
         """
         for character in characters:
-            self.update_character_memory(character, timeline_memory=event)
+            self.update_character_memory(character, event=event)

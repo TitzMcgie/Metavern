@@ -261,8 +261,9 @@ class TurnManager:
                 )
                 self.timeline_manager.add_event(self.timeline, message_obj)
                 
-                # Broadcast this TimelineEvent to all characters
-                self.character_manager.broadcast_event_to_characters(self.characters, message_obj)
+                # Broadcast this TimelineEvent to currently active characters only
+                active_characters = [c for c in self.characters if c.persona.name in self.timeline.current_participants]
+                self.character_manager.broadcast_event_to_characters(active_characters, message_obj)
                 
                 # Print with body language in cyan color if available
                 print(f"\n💬 {character.persona.name}:", end="")
@@ -286,8 +287,9 @@ class TurnManager:
                 )
                 self.timeline_manager.add_event(self.timeline, action_obj)
                 
-                # Broadcast this TimelineEvent to all characters
-                self.character_manager.broadcast_event_to_characters(self.characters, action_obj)
+                # Broadcast this TimelineEvent to currently active characters only
+                active_characters = [c for c in self.characters if c.persona.name in self.timeline.current_participants]
+                self.character_manager.broadcast_event_to_characters(active_characters, action_obj)
                 
                 # Print action without dialogue
                 print(f"\n👤 {character.persona.name}: {Fore.CYAN}*{physical_action}*{Style.RESET_ALL}")
@@ -314,8 +316,9 @@ class TurnManager:
             )
             self.timeline_manager.add_event(self.timeline, scene)
             
-            # Broadcast scene to all characters
-            self.character_manager.broadcast_event_to_characters(self.characters, scene)
+            # Broadcast scene to currently active characters only
+            active_characters = [c for c in self.characters if c.persona.name in self.timeline.current_participants]
+            self.character_manager.broadcast_event_to_characters(active_characters, scene)
             
             print(f"\n📍 Location: {scene.location}")
             print(f"{scene.description}\n")
@@ -346,8 +349,9 @@ class TurnManager:
             # Add scene to timeline
             self.timeline_manager.add_event(self.timeline, scene)
             
-            # Broadcast scene event to all characters so they're aware of it
-            self.character_manager.broadcast_event_to_characters(self.characters, scene)
+            # Broadcast scene event to currently active characters only
+            active_characters = [c for c in self.characters if c.persona.name in self.timeline.current_participants]
+            self.character_manager.broadcast_event_to_characters(active_characters, scene)
             
             # Save conversation after scene event if callback is provided
             if self.save_callback:
