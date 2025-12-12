@@ -234,7 +234,7 @@ class TimelineManager:
             current_location = self.get_current_location(timeline)
             
             if scene_type == "transition":
-                prompt = f"""You are generating a SCENE TRANSITION for a Harry Potter roleplay story.
+                prompt = f"""You are generating a SCENE TRANSITION for a roleplay story.
                 Current Location: {current_location or 'Unknown'}
                 Characters Present: {', '.join(timeline.current_participants)}
 
@@ -253,9 +253,9 @@ class TimelineManager:
                 CRITICAL RULES:
                 - Choose a NEW location different from {current_location or 'Unknown'}
                 - 2-3 sentences: journey + arrival + atmospheric details
-                - Make it specific to Harry Potter world
                 - Include sensory details (what they see/hear/feel)
                 - Naturally flow from recent events
+                - Match the tone and setting of the world established in the timeline
 
                 OUTPUT FORMAT (strict JSON):
                 {{
@@ -265,12 +265,12 @@ class TimelineManager:
 
                 EXAMPLE:
                 {{
-                "location": "Dumbledore's Office",
-                "event_description": "The three friends climbed the spiral staircase, the stone steps moving beneath their feet. They arrived at the heavy oak door, which swung open to reveal Dumbledore's circular office lined with sleeping portraits and silver instruments, while Fawkes the phoenix watched them from his golden perch."
+                "location": "The Elder's Office",
+                "event_description": "The group made their way through the winding corridors, their footsteps echoing off the stone walls. They arrived at the heavy wooden door, which opened to reveal a circular room filled with ancient artifacts and softly glowing instruments, while mysterious portraits watched their arrival."
                 }}"""
             
             else:  # environmental
-                prompt = f"""You are generating an ENVIRONMENTAL SCENE EVENT for a Harry Potter roleplay story.
+                prompt = f"""You are generating an ENVIRONMENTAL SCENE EVENT for a roleplay story.
                 Current Location: {current_location or 'Unknown'}
                 Characters Present: {', '.join(timeline.current_participants)}
 
@@ -289,10 +289,10 @@ class TimelineManager:
 
                 EVENT TYPES (choose dynamically):
                 - **Physical**: Wind blows, object falls, door slams, temperature changes
-                - **Discovery**: Hidden object revealed, clue appears, book falls open
-                - **Mysterious**: Strange sound, shadow moves, magic activates
-                - **Danger**: Warning sign, threat appears, protective spell triggers
-                - **Character-related**: Portrait speaks, ghost appears, owl arrives (NOT character entry)
+                - **Discovery**: Hidden object revealed, clue appears, item falls open
+                - **Mysterious**: Strange sound, shadow moves, unusual occurrence
+                - **Danger**: Warning sign, threat appears, alarm triggers
+                - **Character-related**: Someone notices something, messenger arrives (NOT character entry)
 
                 CRITICAL RULES:
                 - Event happens in CURRENT location: {current_location or 'Unknown'}
@@ -301,6 +301,7 @@ class TimelineManager:
                 - Include sensory details (what they see/hear/feel)
                 - Must be something characters can react to
                 - Vary event type - don't repeat patterns from timeline
+                - Match the tone and setting of the world established in the timeline
 
                 OUTPUT FORMAT (strict JSON):
                 {{
@@ -310,8 +311,8 @@ class TimelineManager:
 
                 EXAMPLE:
                 {{
-                "location": "Hogwarts Library",
-                "event_description": "A sudden gust of ice-cold wind tears through the library, extinguishing half the torches. Pages flutter wildly as a single ancient book slides off a high shelf and crashes open on the table between them—landing on a page marked with a glowing symbol."
+                "location": "The Library",
+                "event_description": "A sudden gust of ice-cold wind tears through the library, extinguishing half the lights. Pages flutter wildly as a single ancient tome slides off a high shelf and crashes open on the table between them—landing on a page marked with a glowing symbol."
                 }}"""
             
             response = self.model.generate_content(prompt, temperature=0.85)
@@ -343,7 +344,7 @@ class TimelineManager:
         timeline_str = self.get_timeline_context(timeline, recent_event_count=recent_event_count)
         current_location = self.get_current_location(timeline)
         
-        prompt = f"""You are a narrative AI assistant for a Harry Potter roleplay story.
+        prompt = f"""You are a narrative AI assistant for a roleplay story.
         Current Location: {current_location or 'Unknown'}
         Characters Present: {', '.join(timeline.current_participants)}
         
