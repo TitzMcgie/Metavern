@@ -434,11 +434,8 @@ class TurnManager:
         if not active_characters:
             return
         
-        # Get recent timeline events
-        recent_events = self.timeline_manager.get_recent_events(self.timeline, recent_event_count=15)
-        
         # Call unified judge LLM (handles both initial assignment and evaluation)
-        result = self.story_manager.evaluate_and_assign_objectives(active_characters, recent_events)
+        result = self.story_manager.evaluate_and_assign_objectives(active_characters, self.timeline)
         
         # Process character updates
         print("\n📋 Character Objective Updates:")

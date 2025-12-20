@@ -8,9 +8,10 @@ from pathlib import Path
 import json
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from data_models import Story, Character, TimelineEvent
+from data_models import Story, Character, TimelineEvent, TimelineHistory
 from config import Config
 from openrouter_client import GenerativeModel
+from helpers.response_parser import parse_json_response
 
 
 class StoryManager:
@@ -25,10 +26,6 @@ class StoryManager:
         """
         self.story = story
         self.model = GenerativeModel(Config.DEFAULT_MODEL)
-    
-    def set_story_arc(self, story: Story) -> None:
-        """Set the story arc."""
-        self.story = story
     
     def get_current_objective(self) -> Optional[str]:
         """Get the current story objective."""
@@ -73,85 +70,11 @@ class StoryManager:
         """
         return context
     
-    def assign_initial_objectives(
-        self,
-        active_characters: List[Character],
-        timeline_context: str
-    ) -> Dict[str, str]:
-        """
-        Assign initial character objectives at story start or when objective advances.
-        
-        Args:
-            active_characters: List of currently active characters
-            timeline_context: Recent timeline context
-            
-        Returns:
-            Dictionary mapping character names to their new objectives
-        """
-        if not self.story or self.is_story_complete():
-            return {char.persona.name: None for char in active_characters}
-        
-        current_objective = self.get_current_objective()
-        
-        # Build character descriptions
-        char_descriptions = []
-        for char in active_characters:
-            traits = ", ".join(char.persona.traits)
-            char_descriptions.append(
-                f"- {char.persona.name}: {traits}. Speaking style: {char.persona.speaking_style}"
-            )
-        
-        prompt = f"""You are assigning objectives to characters in an interactive roleplay story.
-        STORY: {self.story.title}
-        {self.story.description}
-        CURRENT STORY OBJECTIVE (what needs to be achieved):
-        {current_objective}
-        ACTIVE CHARACTERS:
-        {chr(10).join(char_descriptions)}
-        RECENT CONTEXT:
-        {timeline_context}
-        TASK: Assign ONE specific objective to EACH character that helps achieve the current story objective.
-
-        Guidelines:
-        - Make objectives specific enough to guide the character, but flexible enough to allow creativity
-        - Consider each character's unique abilities and personality
-        - Objectives should be complementary (characters working together from different angles)
-        - Objectives should be achievable through conversation/action in 3-10 turns
-        - Don't assign the exact same objective to multiple characters
-
-        Respond ONLY with valid JSON in this format:
-        {{
-        "character_objectives": {{
-            "CharacterName1": "specific objective for this character",
-            "CharacterName2": "specific objective for this character"
-        }}
-        }}"""
-
-        try:
-            response = self.model.generate_content(prompt)
-            response_text = response.text.strip()
-            
-            # Extract JSON from response
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-            
-            result = json.loads(response_text)
-            return result.get("character_objectives", {})
-            
-        except Exception as e:
-            print(f"⚠️ Error assigning initial objectives: {e}")
-            # Fallback: generic objectives
-            return {
-                char.persona.name: f"Help achieve: {current_objective}"
-                for char in active_characters
-            }
     
     def evaluate_and_assign_objectives(
         self,
         active_characters: List[Character],
-        recent_timeline_events: List[TimelineEvent]
+        timeline: TimelineHistory
     ) -> Dict[str, Any]:
         """
         Unified LLM call that handles both initial assignment and ongoing evaluation.
@@ -166,7 +89,7 @@ class StoryManager:
         
         Args:
             active_characters: List of currently active characters
-            recent_timeline_events: Recent timeline events for context
+            timeline: TimelineHistory object containing all context
             
         Returns:
             Dictionary with evaluation results:
@@ -197,23 +120,10 @@ class StoryManager:
             for char in active_characters
         )
         
-        # Build timeline summary
-        timeline_summary = []
-        for event in recent_timeline_events[-15:]:
-            if hasattr(event, 'character') and hasattr(event, 'dialouge'):
-                timeline_summary.append(f"{event.character}: {event.dialouge}")
-            elif hasattr(event, 'character') and hasattr(event, 'description') and hasattr(event, '__class__'):
-                event_type = event.__class__.__name__
-                if event_type == "Action":
-                    timeline_summary.append(f"[ACTION] {event.character}: {event.description}")
-                elif event_type == "CharacterEntry":
-                    timeline_summary.append(f"[ENTRY] {event.character} entered: {event.description}")
-                elif event_type == "CharacterExit":
-                    timeline_summary.append(f"[EXIT] {event.character} left: {event.description}")
-                elif event_type == "Scene":
-                    timeline_summary.append(f"[SCENE at {event.location}]: {event.description}")
-        
-        timeline_text = "\n".join(timeline_summary) if timeline_summary else "No recent events"
+        # Build timeline summary using TimelineManager
+        from managers.timelineManager import TimelineManager
+        timeline_manager = TimelineManager()
+        timeline_text = timeline_manager.get_timeline_context(timeline, recent_event_count=15)
         
         # Build character info
         char_info = []
@@ -229,85 +139,72 @@ class StoryManager:
         if is_first_turn:
             # First turn: Assign initial objectives
             prompt = f"""You are assigning objectives to characters in an interactive roleplay story.
+            STORY: {self.story.title}
+            {self.story.description}
+            CURRENT STORY OBJECTIVE (what needs to be achieved):
+            {current_story_objective}
+            ACTIVE CHARACTERS:
+            {char_info_text}
+            RECENT CONTEXT:
+            {timeline_text}
+            TASK: Assign ONE specific objective to EACH character that helps achieve the current story objective.
 
-STORY: {self.story.title}
-{self.story.description}
+            Guidelines:
+            - Make objectives specific but flexible
+            - Consider each character's unique abilities and personality
+            - Objectives should complement each other
+            - Achievable through conversation/action in 3-10 turns
 
-CURRENT STORY OBJECTIVE (what needs to be achieved):
-{current_story_objective}
-
-ACTIVE CHARACTERS:
-{char_info_text}
-
-RECENT CONTEXT:
-{timeline_text}
-
-TASK: Assign ONE specific objective to EACH character that helps achieve the current story objective.
-
-Guidelines:
-- Make objectives specific but flexible
-- Consider each character's unique abilities and personality
-- Objectives should complement each other
-- Achievable through conversation/action in 3-10 turns
-
-Respond ONLY with valid JSON:
-{{
-  "character_updates": {{
-    "CharacterName1": {{
-      "objective": "specific objective for this character",
-      "status": "assigned",
-      "reasoning": "why this objective fits them"
-    }}
-  }},
-  "story_objective_complete": false,
-  "reasoning": "Story just started, objective not yet complete"
-}}"""
+            Respond ONLY with valid JSON:
+            {{
+            "character_updates": {{
+                "CharacterName1": {{
+                "objective": "specific objective for this character",
+                "status": "assigned",
+                "reasoning": "why this objective fits them"
+                }}
+            }},
+            "story_objective_complete": false,
+            "reasoning": "Story just started, objective not yet complete"
+            }}"""
         else:
             # Ongoing: Evaluate and reassign
             prompt = f"""You are evaluating story progression in an interactive roleplay.
 
-CURRENT STORY OBJECTIVE (Overall goal):
-{current_story_objective}
+            CURRENT STORY OBJECTIVE (Overall goal):
+            {current_story_objective}
 
-ACTIVE CHARACTERS AND CURRENT OBJECTIVES:
-{char_info_text}
+            ACTIVE CHARACTERS AND CURRENT OBJECTIVES:
+            {char_info_text}
 
-RECENT CONVERSATION (Last 15 events):
-{timeline_text}
+            RECENT CONVERSATION (Last 15 events):
+            {timeline_text}
 
-EVALUATE AND UPDATE:
+            EVALUATE AND UPDATE:
 
-1. For EACH character:
-   - If objective completed: Provide NEW objective toward current story goal, status="completed"
-   - If ongoing: Keep same objective, status="continuing"
+            1. For EACH character:
+            - If objective completed: Provide NEW objective toward current story goal, status="completed"
+            - If ongoing: Keep same objective, status="continuing"
 
-2. For STORY OBJECTIVE:
-   - Is it achieved? (Even if some character objectives incomplete)
+            2. For STORY OBJECTIVE:
+            - Is it achieved? (Even if some character objectives incomplete)
 
-Respond ONLY with valid JSON:
-{{
-  "character_updates": {{
-    "CharacterName1": {{
-      "objective": "new objective if completed, otherwise same as current",
-      "status": "completed|continuing",
-      "reasoning": "brief explanation"
-    }}
-  }},
-  "story_objective_complete": true/false,
-  "reasoning": "story objective status explanation"
-}}"""
+            Respond ONLY with valid JSON:
+            {{
+            "character_updates": {{
+                "CharacterName1": {{
+                "objective": "new objective if completed, otherwise same as current",
+                "status": "completed|continuing",
+                "reasoning": "brief explanation"
+                }}
+            }},
+            "story_objective_complete": true/false,
+            "reasoning": "story objective status explanation"
+            }}"""
 
         try:
             response = self.model.generate_content(prompt)
-            response_text = response.text.strip()
-            
-            # Extract JSON from response
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-            
-            result = json.loads(response_text)
+            result = parse_json_response(response.text)
             return result
             
         except Exception as e:

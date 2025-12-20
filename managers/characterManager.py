@@ -429,7 +429,7 @@ class CharacterManager:
         If no movements should happen, return: {{"entries": [], "exits": []}}
         Remember: Only include movements that make narrative sense RIGHT NOW."""
         try:
-            response = self.model.generate_text(prompt)
+            response = self.model.generate_content(prompt)
             result = parse_json_response(response)
             entries = result.get("entries", [])
             exits = result.get("exits", [])
