@@ -41,8 +41,8 @@ def display_welcome(player_name: str, character_names: list):
 
 You are playing as {player_name.upper()}, joined by {char_list}.
 
-The conversation will flow naturally - AI characters will respond when they
-have something to say, creating an organic, dynamic storytelling experience!
+The story unfolds naturally through your conversations! Characters have objectives
+that guide them, and the story progresses automatically as objectives are completed.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -50,7 +50,6 @@ have something to say, creating an organic, dynamic storytelling experience!
    • Just type naturally to speak as {player_name}
    • 'listen' - Stay quiet and let AI characters continue talking
    • 'skip' - Prompt AI characters to continue the conversation
-   • 'next' - Advance to the next story beat (when ready)
    • 'progress' - Check current story progress and objectives
    • 'info' - See character details
    • 'reset' - Start a completely new conversation (deletes history)
@@ -65,20 +64,21 @@ def main():
     """Main entry point for the roleplay system."""
     
     # Configuration - Customize these for your roleplay
-    STORY_NAME = "Harry Potter"  # Story name (will use [Story Name]/characters and [Story Name]/stories)
+    STORY_NAME = "Pirate Adventure"  # Story name (will use [Story Name]/characters and [Story Name]/stories)
     
-    PLAYER_NAME = "Harry"
-    CHARACTER_FILES = ["hermione", "ron"]  # Names of JSON files
-    STORY_FILE = "complete_journey"  # Name of JSON file
-    SCENE_TITLE = "Evening in the Common Room"
-    SCENE_LOCATION = "Gryffindor Common Room, Hogwarts"
+    PLAYER_NAME = "Captain Morgan"  # You, the player
+    CHARACTER_FILES = ["marina", "jack", "captain", "old_sailor"]  # Names of JSON files
+    STORY_FILE = "phantom_pearl"  # Name of JSON file
+    SCENE_TITLE = "Aboard the Sea Serpent"
+    SCENE_LOCATION = "The Sea Serpent - Main Deck"
     SCENE_DESCRIPTION = (
-        "It's evening in the Gryffindor common room. The fire crackles in the hearth, "
-        "casting warm shadows on the scarlet and gold tapestries. Most students have "
-        "gone to bed, but the group remains in their favorite armchairs near the fireplace. "
-        "The atmosphere is relaxed - perfect for a chat between friends."
+        "The sun is setting over the endless ocean, painting the sky in brilliant oranges and purples. "
+        "The Sea Serpent rocks gently on the waves, her black sails billowing in the evening breeze. "
+        "Your crew gathers on the main deck, excitement and anticipation in the air. "
+        "The old map lies spread on a barrel - your ticket to fortune and glory. "
+        "Adventure awaits, and the sea is calling."
     )
-    INITIAL_GREETING = "Hey, it's good to see you both. How's everyone doing?"
+    INITIAL_GREETING = "Alright crew, gather 'round! We've got ourselves a treasure map and a ship ready to sail. What do you make of this?"
     
     # Load story from JSON
     print("\n📖 Loading Story...")
@@ -132,13 +132,29 @@ def main():
             # Display the initial scene
             display_initial_scene(SCENE_TITLE, SCENE_LOCATION, SCENE_DESCRIPTION)
             
-            # Display initial story beat with full scene description
+            # Display initial story objectives and assign character objectives
             if story_manager:
-                current_beat = story_manager.get_current_beat()
-                if current_beat:
-                    story_manager.display_beat_transition(current_beat)
-                    if current_beat.get("scene_description"):
-                        story_manager.display_scene_description(current_beat["scene_description"])
+                current_objective = story_manager.get_current_objective()
+                if current_objective:
+                    print("\n" + "="*70)
+                    print("📖 STORY BEGINS")
+                    print("="*70)
+                    print(f"\n🎯 Current Objective:")
+                    print(f"   {current_objective}")
+                    print("\n" + "="*70 + "\n")
+                    
+                    # Assign initial objectives to all characters
+                    active_characters = [c for c in system.ai_characters if c.persona.name in system.timeline.current_participants]
+                    timeline_context = system.timeline_manager.get_timeline_context(system.timeline, recent_event_count=5)
+                    
+                    print("🎲 Assigning character objectives...\n")
+                    char_objectives = story_manager.assign_initial_objectives(active_characters, timeline_context)
+                    
+                    for character in active_characters:
+                        if character.persona.name in char_objectives:
+                            character.state.current_objective = char_objectives[character.persona.name]
+                            print(f"   🎯 {character.persona.name}: \"{char_objectives[character.persona.name]}\"")
+                    print()
             
             # Start the roleplay session
             print("🎬 Starting the conversation...\n")
@@ -171,106 +187,22 @@ def main():
             print("✨ Ready to continue!\n")
         
         # Main conversation loop
-        message_count_at_beat_start = 0
         player_messages_count = 0
         
         while True:
             try:
-                # Story progression logic (only if story manager exists)
-                if story_manager:
-                    current_beat = story_manager.get_current_beat()
-                    current_event_count = len(system.timeline.events)
-                    events_in_beat = current_event_count - message_count_at_beat_start
-                    story_manager.messages_in_current_beat = events_in_beat
-                    
-                    # Check for story events periodically
-                    if player_messages_count > 0 and player_messages_count % 3 == 0:
-                        recent_events = system.timeline_manager.get_recent_events(system.timeline)
-                        event = story_manager.check_for_story_event(
-                            silence_duration=2,
-                            message_count=len(recent_events),
-                            recent_messages=recent_events[-3:] if len(recent_events) >= 3 else recent_events
-                        )
-                        if event:
-                            story_manager.display_story_event(event)
-                            # Add as a scene event
-                            current_location = system.timeline_manager.get_current_location(system.timeline)
-                            scene = system.timeline_manager.create_scene(
-                                scene_type="environmental",
-                                location=current_location or SCENE_LOCATION,
-                                description=f"[{event['title']}] {event['description']}"
-                            )
-                            system.timeline_manager.add_event(system.timeline, scene)
-                            # Broadcast to currently active characters only
-                            active_characters = [c for c in system.ai_characters if c.persona.name in system.timeline.current_participants]
-                            system.character_manager.broadcast_event_to_characters(active_characters, scene)
-                    
-                    # Check if we can advance story
-                    can_advance = False
-                    if current_beat and events_in_beat >= current_beat.get("min_messages", 10):
-                        recent_events = system.timeline_manager.get_recent_events(system.timeline, n=15)
-                        recent_messages = [evt for evt in recent_events if isinstance(evt, Message)]
-                        summary = " ".join([msg.dialouge for msg in recent_messages])
-                        if story_manager.check_beat_completion(summary):
-                            can_advance = True
-                else:
-                    can_advance = False
-                
                 # Get player input
                 print("\n" + "─"*70)
-                prompt_parts = [f"⚡ {PLAYER_NAME}"]
-                if can_advance:
-                    prompt_parts.append(" [Story ready to advance - type 'next']")
-                prompt_parts.append(": ")
-                user_input = input("".join(prompt_parts)).strip()
+                user_input = input(f"⚡ {PLAYER_NAME}: ").strip()
                 
                 # Track player messages
-                if user_input and user_input.lower() not in ['listen', 'skip', 'next', 'progress', 'info', 'quit', 'exit']:
+                if user_input and user_input.lower() not in ['listen', 'skip', 'progress', 'info', 'quit', 'exit', 'reset']:
                     player_messages_count += 1
-                
-                # Handle story advancement command
-                if user_input.lower() in ['next', 'advance', 'continue story']:
-                    if story_manager:
-                        if can_advance:
-                            advanced = story_manager.advance_story()
-                            if advanced:
-                                message_count_at_beat_start = current_event_count
-                                player_messages_count = 0
-                                new_beat = story_manager.get_current_beat()
-                                if new_beat:
-                                    story_manager.display_beat_transition(new_beat)
-                                    if new_beat.get("scene_description"):
-                                        story_manager.display_scene_description(new_beat["scene_description"])
-                            else:
-                                print("\n" + "="*70)
-                                print("🎉 STORY COMPLETED!")
-                                print("="*70)
-                                # Handle both Story object and dict
-                                story_title = story_arc.title if hasattr(story_arc, 'title') else story_arc.get('title', 'The Story')
-                                print(f"\nYou've completed: {story_title}")
-                                print("The adventure concludes here... for now.")
-                                print("="*70 + "\n")
-                        else:
-                            current_beat = story_manager.get_current_beat()
-                            min_needed = current_beat.get("min_messages", 10) if current_beat else 10
-                            remaining = max(0, min_needed - events_in_beat)
-                            print(f"\n⏳ The story isn't quite ready to advance yet.")
-                            print(f"   Continue the conversation ({remaining} more events recommended)")
-                            print(f"   and work toward the current objectives.\n")
-                    else:
-                        print("\n⚠️  No story loaded - cannot advance.")
-                    continue
                 
                 # Handle progress command
                 if user_input.lower() == 'progress':
                     if story_manager:
                         print(story_manager.get_progress_summary())
-                        beat = story_manager.get_current_beat()
-                        if beat:
-                            print("🎯 Current Objectives:")
-                            for obj in beat.get("objectives", []):
-                                print(f"   • {obj}")
-                            print(f"\n📊 Events in this beat: {events_in_beat}/{beat.get('min_messages', 10)} minimum")
                     else:
                         print("\n⚠️  No story loaded.")
                     continue

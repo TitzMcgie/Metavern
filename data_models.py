@@ -145,14 +145,12 @@ class CharacterState(BaseModel):
     """Represents the character's current, moment-to-moment condition."""
     
     name: str
-    mood: str = Field(default="neutral", description="Current emotional state")
-    focus: Optional[str] = Field(default=None, description="What the character is currently focusing on or thinking about")
-    current_action: Optional[str] = Field(default=None, description="Current activity or intent")
-    is_silent: bool = Field(default=False, description="Whether character is deliberately staying silent (upset, thinking, etc.)")
+    current_objective: Optional[str] = Field(default=None, description="Current activity or intent")
 
 
 class Character(BaseModel):
     """Encapsulates all aspects of a single character."""
+
     persona: CharacterPersona
     memory: Optional[CharacterMemory] = None
     state: Optional[CharacterState] = None
@@ -167,30 +165,5 @@ class Story(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique ID for the story")
     title: str = Field(..., description="Title of the story arc")
     description: str = Field(..., description="Overall description of the story")
-    completed: bool = Field(default=False, description="Whether the entire story is completed")
-    
-    beats: List[Dict[str, Any]] = Field(
-        default_factory=list,
-        description="""List of story beats in order. Each beat is a dict with:
-        - id: str (unique ID)
-        - title: str (beat title)
-        - description: str (what happens)
-        - scene_description: Optional[str] (atmospheric location description)
-        - objectives: List[str] (goals to accomplish)
-        - completed: bool (default False)
-        - trigger_conditions: Optional[List[str]] (conditions to advance)
-        - location: Optional[str] (where beat takes place)
-        - key_npcs: Optional[List[str]] (important NPCs)
-        - min_messages: int (minimum messages before advancing, default 10)
-        - events: List[Dict] (dynamic events for this beat, each with:
-            - id: str (unique ID)
-            - title: str (event title)
-            - description: str (what happens)
-            - event_type: str ('interruption', 'discovery', 'encounter', 'danger', 'mystery')
-            - trigger_after_messages: Optional[int] (trigger timing)
-            - triggered: bool (default False)
-            - priority: float (0.0-1.0, likelihood to trigger)
-        )
-        """
-    )
-    current_beat_index: int = Field(default=0, description="Index of the current beat")
+    objectives: List[str] = Field(..., description="List of main objectives for the story")
+    current_objective_index: int = Field(default=0, description="Index of the current objective")

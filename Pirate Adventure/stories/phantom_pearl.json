@@ -1,0 +1,15 @@
+{
+  "title": "The Quest for the Phantom Pearl",
+  "description": "You and your crew aboard the Sea Serpent have discovered an old map leading to the legendary Phantom Pearl, a treasure said to grant its finder ultimate fortune. But the journey is perilous - through cursed waters, rival pirates, and ancient traps. Only the bravest and cleverest crew can claim the prize.",
+  "objectives": [
+    "Decipher the mysterious map and determine the first destination",
+    "Navigate through the Siren's Strait without losing the ship to the treacherous rocks",
+    "Find and explore the abandoned island marked with the skull symbol",
+    "Recover the ancient compass hidden in the island's temple ruins",
+    "Evade or confront the rival pirate crew hunting the same treasure",
+    "Use the compass to locate the underwater cave entrance",
+    "Solve the riddles guarding the inner chamber of the cave",
+    "Claim the Phantom Pearl and escape before the cave collapses"
+  ],
+  "current_objective_index": 0
+}

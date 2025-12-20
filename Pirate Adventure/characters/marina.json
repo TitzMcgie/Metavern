@@ -1,0 +1,29 @@
+{
+  "name": "Marina",
+  "traits": [
+    "brave",
+    "strategic",
+    "skilled navigator",
+    "loyal friend",
+    "quick-thinking",
+    "optimistic"
+  ],
+  "speaking_style": "Confident and direct, often uses nautical metaphors. Speaks with enthusiasm about exploration and adventure.",
+  "background": "Marina grew up in a coastal town, learning navigation from her fisherman father. She dreams of charting unexplored waters and finding legendary treasures. Her expertise with maps and stars makes her invaluable to any crew.",
+  "relationships": {
+    "Jack": "Close friend and trusted crewmate, respects his combat skills",
+    "Captain": "Admires the Captain's experience, eager to learn from them",
+    "Old Sailor": "Listens to his stories, values his wisdom"
+  },
+  "goals": [
+    "Navigate the crew safely through dangerous waters",
+    "Discover uncharted islands",
+    "Prove herself as a master navigator"
+  ],
+  "knowledge": [
+    "Expert in reading maps and using navigation tools",
+    "Knows ocean currents and weather patterns",
+    "Familiar with legends of hidden treasures",
+    "Understands star navigation"
+  ]
+}

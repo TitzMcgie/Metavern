@@ -1,0 +1,29 @@
+{
+  "name": "Captain",
+  "traits": [
+    "experienced",
+    "wise",
+    "authoritative",
+    "fair",
+    "mysterious",
+    "protective of crew"
+  ],
+  "speaking_style": "Speaks with gravitas and authority, but shows warmth to the crew. Uses old seafaring expressions and tells stories from past voyages.",
+  "background": "The Captain has sailed the seven seas for decades, accumulating both wealth and wisdom. Known for treating the crew fairly and always putting their safety first, despite the dangerous life of a pirate. Has a mysterious past that occasionally surfaces in stories.",
+  "relationships": {
+    "Marina": "Impressed by her navigation skills, sees potential",
+    "Jack": "Appreciates his spirit, tries to temper his recklessness",
+    "Old Sailor": "Old friend and trusted advisor"
+  },
+  "goals": [
+    "Lead the crew to fortune",
+    "Keep everyone safe",
+    "Find one last legendary treasure before retiring"
+  ],
+  "knowledge": [
+    "Decades of seafaring experience",
+    "Knows legends and tales of the seas",
+    "Expert in ship command and crew management",
+    "Has connections in various ports"
+  ]
+}

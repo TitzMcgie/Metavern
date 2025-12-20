@@ -282,27 +282,6 @@ class TurnManager:
         last_speaker = None
         
         while consecutive_count < max_turns:
-            if self.story_manager and consecutive_count >= 2:
-                recent_events = self.timeline_manager.get_recent_events(self.timeline)
-                event_count = len(recent_events)
-                event = self.story_manager.check_for_story_event(
-                    silence_duration=consecutive_count,
-                    message_count=event_count,
-                    recent_messages=recent_events[-3:] if len(recent_events) >= 3 else recent_events
-                )
-                if event:
-                    self.story_manager.display_story_event(event)
-                    current_location = self.timeline_manager.get_current_location(self.timeline)
-                    self.timeline_manager.add_event(
-                        self.timeline,
-                        event=Scene(
-                            scene_type="environmental",
-                            location=current_location or "Unknown",
-                            description=f"[{event['title']}] {event['description']}"
-                        )
-                    )
-                    break
-            
             # Ask ONE character at a time (sequentially, not in parallel)
             # Note: select_next_speaker() prints its own "thinking" and "no one speaks" messages
             result = self.select_next_speaker()
@@ -392,6 +371,10 @@ class TurnManager:
             # Small delay for readability and to let next character see the context
             time.sleep(2)
         
+        # JUDGE EVALUATION: After turn cycle completes, evaluate objectives
+        if self.story_manager and responses:
+            self._evaluate_objectives_with_judge()
+        
         # Save conversation after AI responses if callback is provided
         if responses and self.save_callback:
             self.save_callback()
@@ -431,3 +414,97 @@ class TurnManager:
         except Exception as e:
             print(f"\nError generating scene event: {e}\n")
             print("─"*70)
+    
+    def _evaluate_objectives_with_judge(self) -> None:
+        """Evaluate character and story objectives using judge LLM."""
+        if not self.story_manager or not self.story_manager.story:
+            return
+        
+        # Skip if story is complete
+        if self.story_manager.is_story_complete():
+            return
+        
+        print("\n" + "─"*70)
+        print("⚖️  JUDGE EVALUATION")
+        print("─"*70)
+        
+        # Get active characters
+        active_characters = [c for c in self.characters if c.persona.name in self.timeline.current_participants]
+        
+        if not active_characters:
+            return
+        
+        # Get recent timeline events
+        recent_events = self.timeline_manager.get_recent_events(self.timeline, recent_event_count=15)
+        
+        # Call judge LLM
+        evaluation = self.story_manager.evaluate_progress(active_characters, recent_events)
+        
+        # Process character evaluations
+        print("\n📋 Character Objective Updates:")
+        char_evals = evaluation.get("character_evaluations", {})
+        
+        for character in active_characters:
+            char_name = character.persona.name
+            if char_name not in char_evals:
+                continue
+            
+            char_eval = char_evals[char_name]
+            completed = char_eval.get("completed", False)
+            new_objective = char_eval.get("new_objective")
+            reasoning = char_eval.get("reasoning", "")
+            
+            if completed:
+                print(f"   ✅ {char_name}: Objective completed!")
+                print(f"      Reasoning: {reasoning}")
+                
+                # Assign new objective if provided
+                if new_objective:
+                    character.state.current_objective = new_objective
+                    print(f"      🎯 New objective: \"{new_objective}\"")
+                else:
+                    character.state.current_objective = None
+            else:
+                print(f"   ⏳ {char_name}: Continuing current objective")
+                if reasoning:
+                    print(f"      Reasoning: {reasoning}")
+        
+        # Check story objective completion
+        story_complete = evaluation.get("story_objective_complete", False)
+        story_reasoning = evaluation.get("reasoning", "")
+        
+        print(f"\n📖 Story Objective Status:")
+        if story_complete:
+            print(f"   ✅ COMPLETED: {story_reasoning}")
+            
+            # Advance to next objective
+            advanced = self.story_manager.advance_story_objective()
+            
+            if advanced:
+                new_objective = self.story_manager.get_current_objective()
+                print(f"\n🎬 STORY PROGRESSION")
+                print(f"   Moving to next objective:")
+                print(f"   🎯 \"{new_objective}\"")
+                
+                # Assign new objectives to all active characters for new story objective
+                timeline_context = self.timeline_manager.get_timeline_context(self.timeline, recent_event_count=10)
+                new_char_objectives = self.story_manager.assign_initial_objectives(active_characters, timeline_context)
+                
+                print(f"\n📋 New Character Objectives:")
+                for character in active_characters:
+                    char_name = character.persona.name
+                    if char_name in new_char_objectives:
+                        character.state.current_objective = new_char_objectives[char_name]
+                        print(f"   🎯 {char_name}: \"{new_char_objectives[char_name]}\"")
+            else:
+                # Story fully complete
+                print(f"\n🎉 STORY COMPLETE!")
+                print(f"   All objectives achieved for: {self.story_manager.story.title}")
+        else:
+            print(f"   ⏳ In Progress: {story_reasoning}")
+        
+        print("─"*70 + "\n")
+        
+        # Save after evaluation
+        if self.save_callback:
+            self.save_callback()

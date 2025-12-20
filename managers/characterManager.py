@@ -62,29 +62,17 @@ class CharacterManager:
     def update_character_state(
         self,
         character: Character,
-        mood: Optional[str] = None,
-        focus: Optional[str] = None,
-        current_action: Optional[str] = None,
-        is_silent: Optional[bool] = None
+        current_objective: Optional[str] = None
     ) -> None:
         """
-        Update character's current state (mood, focus, action, silence).
+        Update character's current state (current objective).
         
         Args:
             character: The Character to update
-            mood: Update character's mood
-            focus: Update character's focus
-            current_action: Update character's current action
-            is_silent: Update whether character is deliberately silent
+            current_objective: Update character's current objective
         """
-        if mood is not None:
-            character.state.mood = mood
-        if focus is not None:
-            character.state.focus = focus
-        if current_action is not None:
-            character.state.current_action = current_action
-        if is_silent is not None:
-            character.state.is_silent = is_silent
+        if current_objective is not None:
+            character.state.current_objective = current_objective
         
     
     def build_persona_context(self, character: Character) -> str:
@@ -118,17 +106,14 @@ class CharacterManager:
         return context
     
     def build_state_context(self, character: Character) -> str:
-        """Build the character's current state context including mood, focus, and action."""
+        """Build the character's current state context including and current objective."""
         if not character.state:
             return ""
         
-        context = f"\n\nYOUR CURRENT STATE:\n- Mood: {character.state.mood}"
-        if character.state.focus:
-            context += f"\n- Focus: {character.state.focus}"
-        if character.state.current_action:
-            context += f"\n- Current Action: {character.state.current_action}"
+        if character.state.current_objective:
+            context = f"\n- Current Objective: {character.state.current_objective}"
         
-        return context
+            return context
     
     def build_memory_context(self, character: Character, last_n_messages: Optional[int] = None) -> str:
         """Build the memory context string with actions noted from character's perceived messages.
@@ -177,8 +162,7 @@ class CharacterManager:
     
     def build_decision_prompt(
         self, 
-        character: Character,
-        story_context: Optional[str] = None
+        character: Character
     ) -> str:
         """
         Build the prompt for deciding whether to speak FROM THIS CHARACTER'S PERSPECTIVE.
@@ -196,13 +180,7 @@ class CharacterManager:
         state_context = self.build_state_context(character)
         memory_context = self.build_memory_context(character, last_n_messages=10)
         
-        # Add story context if provided
-        story_section = ""
-        if story_context:
-            story_section = f"\n{story_context}\n"
-        
         prompt = f"""{persona_context}{state_context}
-        {story_section}
         WHAT YOU EXPERIENCED (your perspective):
         {memory_context}
         DECISION:
@@ -297,7 +275,7 @@ class CharacterManager:
         - Your personality should be OBVIOUS from how you speak and act
         - Don't sound like you're giving a lecture or writing an essay
         - Use natural dialogue, contractions, and emotion
-        - Show, don't tell - use actions to convey mood and personality
+        - Show, don't tell - use actions to convey personality
         - **INDEPENDENCE**: Have your own opinions - don't just support what others said
         - **BACKING OFF**: Sometimes "Alright, fair enough" or "Suit yourself" is the perfect response
         - **RESPECTING AUTONOMY**: If someone clearly doesn't want to talk about something, that's OKAY

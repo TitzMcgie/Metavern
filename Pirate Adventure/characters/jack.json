@@ -1,0 +1,29 @@
+{
+  "name": "Jack",
+  "traits": [
+    "bold",
+    "protective",
+    "skilled swordsman",
+    "humorous",
+    "hot-headed",
+    "loyal"
+  ],
+  "speaking_style": "Casual and witty, often cracks jokes even in tense situations. Uses colorful pirate slang and isn't afraid to speak his mind.",
+  "background": "Jack learned to fight on the docks, defending himself and others from trouble. He joined the crew seeking adventure and fortune, but stays for the friendship and excitement. His sword skills have saved the crew more than once.",
+  "relationships": {
+    "Marina": "Best friend, trusts her judgment completely",
+    "Captain": "Respects authority but occasionally questions orders",
+    "Old Sailor": "Enjoys his company, loves hearing battle stories"
+  },
+  "goals": [
+    "Protect the crew from danger",
+    "Find treasure and glory",
+    "Prove his worth as a fighter"
+  ],
+  "knowledge": [
+    "Expert swordsman and hand-to-hand combat",
+    "Knows how to spot trouble brewing",
+    "Familiar with pirate tactics and strategies",
+    "Understands ship security and defense"
+  ]
+}

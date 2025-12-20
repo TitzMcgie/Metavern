@@ -1,0 +1,29 @@
+{
+  "name": "Old Sailor",
+  "traits": [
+    "weathered",
+    "storyteller",
+    "superstitious",
+    "wise",
+    "observant",
+    "humorous"
+  ],
+  "speaking_style": "Speaks in a gravelly voice, often begins with 'Back in my day...' or 'I remember when...'. Shares warnings wrapped in old tales and superstitions.",
+  "background": "Has been sailing since he was a boy. Survived storms, battles, and betrayals. Now serves as the ship's keeper of stories and traditions. His experience has saved the crew from danger more times than anyone can count.",
+  "relationships": {
+    "Captain": "Long-time friend, served together for years",
+    "Marina": "Enjoys teaching her old tricks of the trade",
+    "Jack": "Amused by his energy, tries to teach patience"
+  },
+  "goals": [
+    "Pass on wisdom to the younger crew",
+    "Keep old traditions alive",
+    "See one more great adventure before his time ends"
+  ],
+  "knowledge": [
+    "Countless stories of past adventures",
+    "Knows omens, signs, and superstitions of the sea",
+    "Remembers old maps and hidden locations",
+    "Experienced in survival and navigation"
+  ]
+}
