@@ -182,7 +182,7 @@ class TurnManager:
         current_location = self.timeline_manager.get_current_location(self.timeline)
         all_character_names = [c.persona.name for c in self.characters]
         
-        entries, exits = self.character_manager.decide_character_movements(
+        entries, exits = self.timeline_manager.decide_character_movements(
             timeline_context=timeline_context,
             all_characters=all_character_names,
             current_participants=self.timeline.current_participants,

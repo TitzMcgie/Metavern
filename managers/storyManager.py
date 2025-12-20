@@ -5,13 +5,13 @@ Manager for story progression and narrative flow with sequential objective syste
 from typing import Optional, List, Dict, Any
 import sys
 from pathlib import Path
-import json
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from data_models import Story, Character, TimelineEvent, TimelineHistory
+from data_models import Story, Character, TimelineHistory
 from config import Config
 from openrouter_client import GenerativeModel
 from helpers.response_parser import parse_json_response
+from managers.timelineManager import TimelineManager
 
 
 class StoryManager:
@@ -96,7 +96,7 @@ class StoryManager:
             {
                 "character_updates": {
                     "CharacterName": {
-                        "objective": "current or new objective",
+                        "objective": "current or new objective in 10-15 words",
                         "status": "assigned|completed|continuing",
                         "reasoning": "explanation"
                     }
@@ -121,7 +121,7 @@ class StoryManager:
         )
         
         # Build timeline summary using TimelineManager
-        from managers.timelineManager import TimelineManager
+        
         timeline_manager = TimelineManager()
         timeline_text = timeline_manager.get_timeline_context(timeline, recent_event_count=15)
         
@@ -208,28 +208,7 @@ class StoryManager:
             return result
             
         except Exception as e:
-            print(f"⚠️ Error in objective evaluation: {e}")
-            # Fallback
-            fallback_updates = {}
-            for char in active_characters:
-                if is_first_turn:
-                    fallback_updates[char.persona.name] = {
-                        "objective": f"Help achieve: {current_story_objective}",
-                        "status": "assigned",
-                        "reasoning": "Fallback objective"
-                    }
-                else:
-                    fallback_updates[char.persona.name] = {
-                        "objective": char.state.current_objective or f"Help achieve: {current_story_objective}",
-                        "status": "continuing",
-                        "reasoning": "Evaluation error"
-                    }
-            
-            return {
-                "character_updates": fallback_updates,
-                "story_objective_complete": False,
-                "reasoning": f"Error during evaluation: {e}"
-            }
+            raise ValueError(f"Error during objective evaluation: {e}")
     
     def advance_story_objective(self) -> bool:
         """

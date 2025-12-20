@@ -3,7 +3,7 @@ Timeline Manager for unified timeline event operations.
 Combines message and scene management into a single chronological timeline.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -449,66 +449,6 @@ class TimelineManager:
             description=description
         )
         return action
-    
-    def generate_action_event(
-        self,
-        character_name: str,
-        timeline: TimelineHistory,
-        recent_event_count: int = 10
-    ) -> Action:
-        """
-        Generate a silent character action (no dialogue) based on recent context.
-        Used when a character wants to react physically without speaking.
-        
-        Args:
-            character_name: Name of the character performing the action
-            timeline: TimelineHistory instance to consider
-            recent_event_count: How many recent events to consider for context
-
-        Returns:
-            New Action instance
-        """
-        timeline_str = self.get_timeline_context(timeline, recent_event_count=recent_event_count)
-        
-        prompt = f"""You are {character_name}. You are generating an ACTION for a roleplay story WITHOUT DIALOGUE. This is a silent, visible reaction to what's happening.
-        - Other Characters Present: {', '.join([p for p in timeline.participants if p != character_name])}
-
-        RECENT TIMELINE (in chronological order):
-        {timeline_str}
-
-        TASK:
-        ACTION TYPES:
-        - **Emotional reaction**: steps back, leans forward, narrows eyes, clenches fist
-        - **Physical movement**: moves to window, picks up object, backs away, approaches
-        - **Gesture**: nods, shakes head, points, waves hand dismissively
-        - **Body language**: crosses arms, relaxes posture, tenses up, looks away
-        CRITICAL RULES:
-        - NO spoken words - only physical action
-        - Make it specific and revealing of character's state
-        - Should be a natural reaction to recent events
-        - Keep it concise (1-2 sentences max)
-        - Show emotion through body language
-        - Infer the current location from the most recent scene in the timeline above
-        OUTPUT FORMAT (strict JSON):
-        {{
-            "action_description": "Brief description of the physical action"
-        }}
-        EXAMPLE:
-        {{
-            "action_description": "took a step back, eyes widening in sudden realization"
-        }}"""
-        
-        try:
-            response = self.model.generate_content(prompt, temperature=0.75)
-            result = parse_json_response(response.text)
-            action_desc = result.get("action_description", "").strip()
-            
-            return Action(
-                character=character_name,
-                description=action_desc
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to generate action event: {e}")
         
     # ========== Charracter Entry/Exit Operations ==========
 
@@ -554,313 +494,85 @@ class TimelineManager:
         )
         return exit_event
     
-    def generate_character_entry_event(
+    def decide_character_movements(
         self,
-        character: str,
-        timeline: TimelineHistory,
-        recent_event_count: int = 10
-    ) -> CharacterEntry:
+        timeline_context: str,
+        all_characters: List[str],
+        current_participants: List[str],
+        current_location: str
+    ) -> tuple[List[Dict[str, str]], List[Dict[str, str]]]:
         """
-        Generate a character entry event based on recent context.
+        Make ONE API call to decide both character entries AND exits.
         
         Args:
-            character_name: Name of the character entering
-            timeline: TimelineHistory instance to consider
-            recent_event_count: How many recent events to consider for context
+            timeline_context: Full timeline history context
+            all_characters: List of all character names in the story
+            current_participants: List of characters currently present
+            current_location: Current scene location
             
         Returns:
-            New CharacterEntry instance
+            Tuple of (entries, exits):
+            - entries: List of dicts with keys: 'character', 'description'
+            - exits: List of dicts with keys: 'character', 'description'
         """
-        timeline_str = self.get_timeline_context(timeline, recent_event_count=recent_event_count)
-        current_location = self.get_current_location(timeline)
+        absent_characters = [c for c in all_characters if c not in current_participants]
         
-        prompt = f"""You are generating a CHARACTER ENTRY EVENT for {character} in a roleplay story.
-        - Characters Currently Present: {', '.join(timeline.current_participants)}
-        - Current Location: {current_location or "Unknown location"}
-
-        RECENT TIMELINE (in chronological order):
-        {timeline_str}
-
-        SITUATION:
-        {character} is about to enter the scene. Generate a vivid description of their entrance.
-
-        ENTRY TYPES (choose based on context and character personality):
-        - **Casual**: walks in, strolls over, steps through doorway
-        - **Dramatic**: bursts in, sweeps into the room, appears suddenly
-        - **Cautious**: peers around corner, enters hesitantly, slips in quietly
-        - **Urgent**: rushes in, hurries through, comes running
-        - **Mysterious**: materializes, emerges from shadows, appears without warning
-
-        CRITICAL RULES:
-        - Make it SPECIFIC and character-appropriate
-        - Include sensory details (what others see/hear)
-        - Should reflect the current mood/tension in timeline
-        - Keep it concise (1-2 sentences)
-        - Consider the location when describing entrance
-
-        OUTPUT FORMAT (strict JSON):
-        {{
-            "entry_description": "Brief vivid description of how {character} enters"
-        }}
-
-        EXAMPLE:
-        {{
-            "entry_description": "pushed open the heavy oak door and stepped into the library, her footsteps echoing softly as she glanced around with curious eyes"
-        }}"""
-        
-        try:
-            response = self.model.generate_content(prompt, temperature=0.75)
-            result = parse_json_response(response.text)
-            entry_desc = result.get("entry_description", "").strip()
-            
-            return CharacterEntry(
-                character=character,
-                description=entry_desc
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to generate character entry event: {e}")
-    
-    def generate_character_exit_event(
-        self,
-        character: str,
-        timeline: TimelineHistory,
-        recent_event_count: int = 10
-    ) -> CharacterExit:
-        """
-        Generate a character exit event based on recent context.
-        
-        Args:
-            character_name: Name of the character leaving
-            timeline: TimelineHistory instance to consider
-            recent_event_count: How many recent events to consider for context
-            
-        Returns:
-            New CharacterExit instance
-        """
-        timeline_str = self.get_timeline_context(timeline, recent_event_count=recent_event_count)
-        current_location = self.get_current_location(timeline)
-        
-        prompt = f"""You are generating a CHARACTER EXIT EVENT for {character} in a roleplay story.
-        - Characters Currently Present: {', '.join([p for p in timeline.current_participants if p != character])}
-        - Current Location: {current_location or "Unknown location"}
-
-        RECENT TIMELINE (in chronological order):
-        {timeline_str}
-
-        SITUATION:
-        {character} is about to leave the scene. Generate a vivid description of their exit.
-
-        EXIT TYPES (choose based on context and character personality):
-        - **Casual**: walks out, heads for the door, leaves quietly
-        - **Dramatic**: storms out, sweeps from the room, departs abruptly
-        - **Reluctant**: hesitates then leaves, backs away slowly, exits with a glance back
-        - **Urgent**: hurries out, rushes away, bolts from the room
-        - **Mysterious**: fades away, disappears into shadows, vanishes quietly
-
-        CRITICAL RULES:
-        - Make it SPECIFIC and character-appropriate
-        - Include sensory details (what others see/hear)
-        - Should reflect the current mood/tension in timeline
-        - Keep it concise (1-2 sentences)
-        - Consider the location and recent events when describing exit
-
-        OUTPUT FORMAT (strict JSON):
-        {{
-            "exit_description": "Brief vivid description of how {character} leaves"
-        }}
-
-        EXAMPLE:
-        {{
-            "exit_description": "gathered her books with a resigned sigh and headed for the door, footsteps fading down the corridor"
-        }}"""
-        
-        try:
-            response = self.model.generate_content(prompt, temperature=0.75)
-            result = parse_json_response(response.text)
-            exit_desc = result.get("exit_description", "").strip()
-            
-            return CharacterExit(
-                character=character,
-                description=exit_desc
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to generate character exit event: {e}")
-    
-    def should_generate_character_entry(
-        self,
-        character_name: str,
-        timeline: TimelineHistory,
-        recent_event_count: int = 15
-    ) -> Optional[dict]:
-        """
-        Use LLM to decide if a character entry event should be generated.
-        
-        Args:
-            character_name: Name of the character considering entry
-            timeline: TimelineHistory instance
-            recent_event_count: Number of recent events to include in context
-            
-        Returns:
-            dict with 'entry_generated' (bool) and 'entry_description' (str) if entry should happen,
-            None if character should not enter
-        """
-        timeline_str = self.get_timeline_context(timeline, recent_event_count=recent_event_count)
-        current_location = self.get_current_location(timeline)
-        
-        prompt = f"""You are a narrative AI assistant for a roleplay story.
-        Character in Question: {character_name}
-        Characters Currently Present: {', '.join(timeline.current_participants)}
-        Current Location: {current_location or "Unknown location"}
-        
-        RECENT TIMELINE (in chronological order):
-        {timeline_str}
-
+        prompt = f"""You are the meta-narrator for this story. Based on the full timeline context, decide which characters (if any) should enter or exit the current scene.
+        CURRENT SCENE:
+        Location: {current_location}
+        Currently Present: {', '.join(current_participants) if current_participants else 'None'}
+        Absent Characters: {', '.join(absent_characters) if absent_characters else 'None'}
+        RECENT TIMELINE CONTEXT:
+        {timeline_context}
         YOUR TASK:
-        Decide if {character_name} should ENTER the scene right now.
-
-        GENERATE A CHARACTER ENTRY IF:
-        1. **Natural story moment** - {character_name} would realistically arrive now
-        2. **Story enhancement** - Their entrance would add interest or push plot forward
-        3. **Character motivation** - They have a reason to be at this location now
-        4. **Good timing** - Not interrupting a critical emotional moment
-        5. **Location makes sense** - {character_name} would plausibly be near {current_location or "this location"}
-
-        DO NOT GENERATE ENTRY IF:
-        1. **Already present** - {character_name} is already in current_participants
-        2. **Recently left** - They just exited in the last few events
-        3. **Bad timing** - Would interrupt important dialogue or emotional beat
-        4. **No story reason** - Random entrance with no narrative purpose
-        5. **Location illogical** - Character wouldn't realistically be here
-
-        IF YOU DECIDE {character_name} SHOULD ENTER:
-        Create a VIVID ENTRANCE that:
-        - Fits their personality and the current situation
-        - Is SPECIFIC with sensory details
-        - Reflects the current mood/tension
-        - Gives other characters something to react to
-
-        OUTPUT FORMAT (strict JSON):
-        If character should enter:
+        Decide which characters should naturally enter or exit RIGHT NOW based on:
+        - Story flow and narrative logic
+        - Character motivations and goals
+        - Natural cause-and-effect from recent events
+        - Whether the scene/location would attract or repel them
+        CRITICAL ENTRY DESCRIPTION RULES:
+        For character ENTRIES, the description MUST include what the entering character can PHYSICALLY OBSERVE:
+        1. **Location/Environment** - Brief description of where they are (the room, surroundings)
+        2. **Who is present** - Mention the characters they see in front of them
+        3. **Observable state** - Body language, facial expressions, tension they can SEE (not what was said)
+        DO NOT include in entry descriptions:
+        - Previous conversations (they weren't there to hear it)
+        - Why people are there (they don't know yet)
+        - Internal thoughts of others
+        ENTRY DESCRIPTION EXAMPLE:
+        "Dumbledore looks up from his ancient desk, taking in the three students standing before him - Harry, Ron, and Hermione. Their faces show visible concern, and tension fills the circular office lined with portraits and magical instruments."
+        EXIT DESCRIPTION EXAMPLE:
+        "Ron nods and quietly steps toward the door, glancing back once before leaving the room."
+        RESPONSE FORMAT (JSON):
         {{
-            "entry_generated": true,
-            "entry_description": "1-2 sentence vivid description of how {character_name} enters"
+            "entries": [
+                {{
+                    "character": "character_name",
+                    "description": "2-3 sentences describing their entry with what they observe (location + who's present + observable state)"
+                }}
+            ],
+            "exits": [
+                {{
+                    "character": "character_name",
+                    "description": "1-2 sentences describing how they leave"
+                }}
+            ]
         }}
 
-        If character should NOT enter:
-        {{
-            "entry_generated": false
-        }}
-
-        Decide now based on the timeline and story context above."""
-        
+        If no movements should happen, return: {{"entries": [], "exits": []}}
+        Remember: Only include movements that make narrative sense RIGHT NOW."""
         try:
-            response = self.model.generate_content(
-                prompt,
-                temperature=0.8,
-                max_tokens=300
-            )
+            response = self.model.generate_content(prompt)
+            result = parse_json_response(response.text)
+            entries = result.get("entries", [])
+            exits = result.get("exits", [])
+
+            return entries, exits
             
-            entry_data = parse_json_response(response.text)
-            
-            if entry_data.get("entry_generated", False):
-                return {
-                    'entry_generated': True,
-                    'entry_description': entry_data.get('entry_description')
-                }
-            else:
-                return None
-                
         except Exception as e:
-            print(f"⚠️  Error in character entry decision: {e}")
-            return None
+            print(f"Error deciding character movements: {e}")
+            return [], []
     
-    def should_generate_character_exit(
-        self,
-        character: str,
-        timeline: TimelineHistory,
-        recent_event_count: int = 15
-    ) -> Optional[dict]:
-        """
-        Use LLM to decide if a character exit event should be generated.
-        
-        Args:
-            character_name: Name of the character considering exit
-            timeline: TimelineHistory instance
-            recent_event_count: Number of recent events to include in context
-            
-        Returns:
-            dict with 'exit_generated' (bool) and 'exit_description' (str) if exit should happen,
-            None if character should stay
-        """
-        timeline_str = self.get_timeline_context(timeline, recent_event_count=recent_event_count)
-        current_location = self.get_current_location(timeline)
-        
-        prompt = f"""You are a narrative AI assistant for a roleplay story.
-        Character in Question: {character}
-        Characters Currently Present: {', '.join(timeline.current_participants)}
-        Current Location: {current_location or "Unknown location"}
-        
-        RECENT TIMELINE (in chronological order):
-        {timeline_str}
-
-        YOUR TASK:
-        Decide if {character} should LEAVE the scene right now.
-
-        GENERATE A CHARACTER EXIT IF:
-        1. **Natural departure point** - Conversation concluded, business finished
-        2. **Character motivation** - {character} has a reason to leave (uncomfortable, bored, urgent business elsewhere)
-        3. **Story enhancement** - Their exit would create dramatic effect or enable new dynamics
-        4. **Been present long enough** - They've participated sufficiently
-        5. **Organic timing** - Natural break in conversation or after their turn
-
-        DO NOT GENERATE EXIT IF:
-        1. **Not currently present** - {character} is not in current_participants
-        2. **Mid-conversation** - Actively engaged in important dialogue
-        3. **Just arrived** - Recently entered in the last few events
-        4. **Story needs them** - Critical moment where their presence is essential
-        5. **Awkward timing** - Would seem forced or unnatural
-
-        IF YOU DECIDE {character} SHOULD LEAVE:
-        Create a VIVID EXIT that:
-        - Fits their personality and current emotional state
-        - Is SPECIFIC with sensory details
-        - Reflects the reason for leaving (casual, urgent, dramatic, reluctant)
-        - Gives other characters something to react to
-
-        OUTPUT FORMAT (strict JSON):
-        If character should exit:
-        {{
-            "exit_generated": true,
-            "exit_description": "1-2 sentence vivid description of how {character} leaves"
-        }}
-
-        If character should NOT exit:
-        {{
-            "exit_generated": false
-        }}
-
-        Decide now based on the timeline and story context above."""
-        
-        try:
-            response = self.model.generate_content(
-                prompt,
-                temperature=0.8,
-                max_tokens=300
-            )
-            
-            exit_data = parse_json_response(response.text)
-            
-            if exit_data.get("exit_generated", False):
-                return {
-                    'exit_generated': True,
-                    'exit_description': exit_data.get('exit_description')
-                }
-            else:
-                return None
-                
-        except Exception as e:
-            print(f"⚠️  Error in character exit decision: {e}")
-            return None
     
     # ========== Summary Operations ==========
     
