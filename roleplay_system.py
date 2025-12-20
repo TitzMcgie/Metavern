@@ -23,6 +23,7 @@ class RoleplaySystem:
         model_name: str = None,
         chat_storage_dir: str = None,
         story_manager = None,
+        story_name: str = "default",
         initial_location: str = "Common Room",
         initial_scene_description: str = None
     ):
@@ -35,6 +36,7 @@ class RoleplaySystem:
             model_name: Gemini model to use for all characters (defaults to Config.DEFAULT_MODEL)
             chat_storage_dir: Directory to store chat logs (defaults to Config.CHAT_STORAGE_DIR)
             story_manager: Optional StoryManager for narrative progression
+            story_name: Name of the story (used for unique conversation filenames)
             initial_location: Starting location for the conversation
             initial_scene_description: Optional initial scene description
             
@@ -51,6 +53,7 @@ class RoleplaySystem:
         
         self.player_name = player_name
         self.model_name = model_name or Config.DEFAULT_MODEL
+        self.story_name = story_name
         
         # Import character manager early to create characters properly
         from managers.characterManager import CharacterManager
@@ -88,7 +91,6 @@ class RoleplaySystem:
         self.turn_manager = TurnManager(
             characters=self.ai_characters,
             timeline=timeline,
-            story_manager=story_manager,
             save_callback=lambda: self._save_conversation()
         )
         
@@ -333,7 +335,9 @@ class RoleplaySystem:
     
     def get_conversation_file_path(self) -> Path:
         """Get the file path where the conversation is saved."""
-        return self.chat_storage_dir / "group_chat.json"
+        # Use story name to create unique conversation file
+        safe_story_name = self.story_name.lower().replace(" ", "_")
+        return self.chat_storage_dir / f"{safe_story_name}_chat.json"
     
     def reset_conversation(self) -> None:
         """

@@ -66,18 +66,18 @@ def main():
     # Configuration - Customize these for your roleplay
     BASE_DIR = "Pirate Adventure"  # Base directory containing 'characters' and 'story' folders
     
-    PLAYER_NAME = "Captain Morgan"  # You, the player
-    CHARACTER_FILES = ["marina", "jack", "captain", "old_sailor"]  # Names of JSON files
+    PLAYER_NAME = "Henry"  # You, the player
+    CHARACTER_FILES = ["marina", "jack", "captain"]  # Names of JSON files
     SCENE_TITLE = "Aboard the Sea Serpent"
     SCENE_LOCATION = "The Sea Serpent - Main Deck"
     SCENE_DESCRIPTION = (
         "The sun is setting over the endless ocean, painting the sky in brilliant oranges and purples. "
         "The Sea Serpent rocks gently on the waves, her black sails billowing in the evening breeze. "
-        "Your crew gathers on the main deck, excitement and anticipation in the air. "
+        "You stand on the main deck with your friends Jack and Marina, and Captain Morgan at the helm. "
         "The old map lies spread on a barrel - your ticket to fortune and glory. "
         "Adventure awaits, and the sea is calling."
     )
-    INITIAL_GREETING = "Alright crew, gather 'round! We've got ourselves a treasure map and a ship ready to sail. What do you make of this?"
+    INITIAL_GREETING = "This map looks incredible! Captain, what do you make of these markings?"
     
     # Load story from JSON
     print("\n📖 Loading Story...")
@@ -116,7 +116,9 @@ def main():
             player_name=PLAYER_NAME,
             characters=characters,
             model_name=Config.DEFAULT_MODEL,
+            chat_storage_dir=BASE_DIR,  
             story_manager=story_manager,
+            story_name=BASE_DIR,
             initial_location=SCENE_LOCATION,
             initial_scene_description=SCENE_DESCRIPTION
         )

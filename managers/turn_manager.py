@@ -31,7 +31,6 @@ class TurnManager:
         self,
         characters: List[Character],
         timeline: TimelineHistory,
-        story_manager: Optional[StoryManager] = None,
         max_consecutive_ai_turns: int = None,
         priority_randomness: float = None,
         save_callback: Optional[callable] = None
@@ -42,14 +41,13 @@ class TurnManager:
         Args:
             characters: List of AI characters in the conversation
             timeline: TimelineHistory instance containing all events and participants
-            story_manager: Optional story manager for narrative progression
             max_consecutive_ai_turns: Maximum number of consecutive AI turns (defaults to Config.MAX_CONSECUTIVE_AI_TURNS)
             priority_randomness: Random factor to add to priority for naturalness (defaults to Config.PRIORITY_RANDOMNESS)
             save_callback: Optional callback function to save conversation after AI responses
         """
         self.characters = characters
         self.timeline = timeline
-        self.story_manager = story_manager
+        
         self.max_consecutive_ai_turns = max_consecutive_ai_turns or Config.MAX_CONSECUTIVE_AI_TURNS
         self.priority_randomness = priority_randomness or Config.PRIORITY_RANDOMNESS
         self.save_callback = save_callback
@@ -57,6 +55,7 @@ class TurnManager:
         # Initialize managers
         self.timeline_manager = TimelineManager()
         self.character_manager = CharacterManager()
+        self.story_manager = StoryManager()
         
         self.turn_count = 0
         self.consecutive_silence_rounds = 0
@@ -77,8 +76,7 @@ class TurnManager:
         # Define worker function for parallel execution
         def get_character_decision(character):
             return character, self.character_manager.decide_turn_response(
-                character,
-                story_context=story_context
+                character
             )
         
         # Execute all character decisions in parallel

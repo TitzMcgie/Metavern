@@ -286,8 +286,7 @@ class CharacterManager:
     
     def decide_turn_response(
         self, 
-        character: Character,
-        story_context: Optional[str] = None
+        character: Character
     ) -> Tuple[str, float, str, Optional[str], Optional[str]]:
         """
         Decide whether this character should speak, act silently, or stay silent.
@@ -295,7 +294,6 @@ class CharacterManager:
         
         Args:
             character: The Character making the decision
-            story_context: Optional story context to guide responses
             
         Returns:
             Tuple of (response_type, priority, reasoning, dialouge, action)
@@ -308,7 +306,7 @@ class CharacterManager:
         
         try:
             # Build prompt from THIS character's perspective
-            prompt = self.build_decision_prompt(character, story_context)
+            prompt = self.build_decision_prompt(character)
             
             # Generate with character's unique settings
             response = self.model.generate_content(
@@ -430,7 +428,7 @@ class CharacterManager:
         Remember: Only include movements that make narrative sense RIGHT NOW."""
         try:
             response = self.model.generate_content(prompt)
-            result = parse_json_response(response)
+            result = parse_json_response(response.text)
             entries = result.get("entries", [])
             exits = result.get("exits", [])
 
