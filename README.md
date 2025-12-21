@@ -1,6 +1,13 @@
 # RoleRealm-A-Story-Driven-Roleplay
 
-An interactive AI-powered roleplay system that brings characters to life through dynamic conversations and story-driven experiences, powered by OpenRouter API.
+![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/license/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/Jit-Roy/RoleRealm/pulls)
+[![OpenRouter](https://img.shields.io/badge/powered%20by-OpenRouter-orange)](https://openrouter.ai/)
+
+An interactive AI-powered roleplay system that brings characters to life through dynamic conversations and story-driven experiences.
+
+![Architecture Diagram](docs/image/architecture.png)
 
 ## Screenshots
 
