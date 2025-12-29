@@ -12,7 +12,7 @@ class Config:
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     
     # Model Settings
-    DEFAULT_MODEL: str = "x-ai/grok-4.1-fast" 
+    DEFAULT_MODEL: str = "openai/gpt-oss-20b" 
     
     MODEL_TEMPERATURE: float = 0.7
     MAX_TOKENS: int = 1024
