@@ -2,3 +2,6 @@ openai
 pydantic
 python-dotenv
 colorama
+fastapi
+uvicorn
+python-multipart

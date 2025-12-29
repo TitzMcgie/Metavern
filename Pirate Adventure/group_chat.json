@@ -1,0 +1,53 @@
+{
+  "id": "11f5af3b-5f2d-4c5e-859c-458ecbc1ca23",
+  "title": "Group Roleplay Session",
+  "events": [
+    {
+      "type": "scene",
+      "timeline_id": "19659f00-149b-4884-ad98-55ae1946ab1e",
+      "timestamp": "2025-12-29T23:10:43.066076",
+      "location": "The Sea Serpent - Main Deck",
+      "description": "The sun is setting over the endless ocean, painting the sky in brilliant oranges and purples. The Sea Serpent rocks gently on the waves, her black sails billowing in the evening breeze. You stand on the main deck with your friends Jack and Marina, and Captain Morgan at the helm. The old map lies spread on a barrel - your ticket to fortune and glory. Adventure awaits, and the sea is calling."
+    },
+    {
+      "type": "message",
+      "timeline_id": "c69eea7c-5295-4102-b00a-fca978bcd3ab",
+      "timestamp": "2025-12-29T23:10:43.114429",
+      "character": "Henry",
+      "dialouge": "This map looks incredible! Captain, what do you make of these markings?",
+      "action_description": "speaks"
+    },
+    {
+      "type": "message",
+      "timeline_id": "30340588-f86b-4a3a-b977-4dac8e1af7b1",
+      "timestamp": "2025-12-29T23:10:51.989856",
+      "character": "Captain",
+      "dialouge": "\"Ah, Henry! That map's ink runs deeper than any tide I've seen. Those markings—looks like a star chart mixed with a riddle. If we follow them, we'll find more than gold; it's a legend that only the bold dare chase.\"",
+      "action_description": "\"clutches the map gently, eyes glinting with excitement, then gestures toward the horizon with a steady hand.\""
+    },
+    {
+      "type": "message",
+      "timeline_id": "b111da7e-cfd1-47a6-aeab-3c83b3adadae",
+      "timestamp": "2025-12-29T23:10:59.122050",
+      "character": "Marina",
+      "dialouge": "Captain, the stars on that chart are a compass of its own. I'll read the heavens, plot a line through the constellations, and steer us straight to the legendary isle. No storm or secret can hide from a navigator who trusts the sky.",
+      "action_description": "leans forward, eyes glittering like polished brass, and points to the map with a confident grin."
+    },
+    {
+      "type": "message",
+      "timeline_id": "06f4db1c-4d91-457e-b747-da1ddc7ee3f5",
+      "timestamp": "2025-12-29T23:11:06.788109",
+      "character": "Captain",
+      "dialouge": "Well, lads, the map's riddles are as old as the sea itself. I say we chart a course by the stars, but heed the warnings etched in these symbols. A true treasure demands both daring and caution.",
+      "action_description": "firmly taps the ship's wheel, eyes fixed on the horizon, a weathered hand reverberating with old sea lore."
+    }
+  ],
+  "participants": [
+    "Henry",
+    "Marina",
+    "Jack",
+    "Captain"
+  ],
+  "timeline_summary": null,
+  "visible_to_user": true
+}
